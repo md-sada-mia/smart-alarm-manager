@@ -65,7 +65,10 @@ class _AlarmScreenState extends State<AlarmScreen>
         final dbHelper = DatabaseHelper();
         final reminders = await dbHelper.getReminders();
         final reminder = reminders.firstWhere((r) => r.id == widget.reminderId);
-        final updated = reminder.copyWith(status: ReminderStatus.completed);
+        final updated = reminder.copyWith(
+          status: ReminderStatus.completed,
+          isActive: false, // Turn off geofence check
+        );
         await dbHelper.updateReminder(updated);
       } catch (e) {
         print('Error marking reminder as done: $e');
@@ -92,7 +95,10 @@ class _AlarmScreenState extends State<AlarmScreen>
         final dbHelper = DatabaseHelper();
         final reminders = await dbHelper.getReminders();
         final reminder = reminders.firstWhere((r) => r.id == widget.reminderId);
-        final updated = reminder.copyWith(status: ReminderStatus.canceled);
+        final updated = reminder.copyWith(
+          status: ReminderStatus.canceled,
+          isActive: false, // Turn off geofence check
+        );
         await dbHelper.updateReminder(updated);
       } catch (e) {
         print('Error marking reminder as canceled: $e');

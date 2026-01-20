@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
@@ -188,7 +187,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _toggleActive(Reminder reminder) async {
-    final updated = reminder.copyWith(isActive: !reminder.isActive);
+    final bool newActiveState = !reminder.isActive;
+    final updated = reminder.copyWith(
+      isActive: newActiveState,
+      // If manually enabled, reset status to active
+      status: newActiveState ? ReminderStatus.active : reminder.status,
+      clearSnooze: newActiveState, // Clear snooze if re-enabling
+    );
     await _repository.updateReminder(updated);
     _loadReminders();
   }
@@ -233,6 +238,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return "Snoozed ${duration.inMinutes}m ${duration.inSeconds % 60}s";
     } else {
       return "Snoozed ${duration.inSeconds}s";
+    }
+  }
+
+  Color _getStatusColor(Reminder reminder) {
+    if (!reminder.isActive) {
+      if (reminder.status == ReminderStatus.completed) return Colors.green;
+      if (reminder.status == ReminderStatus.canceled) return Colors.red;
+      return Colors.grey;
+    }
+
+    switch (reminder.status) {
+      case ReminderStatus.active:
+        return Colors.blue;
+      case ReminderStatus.snoozed:
+        return Colors.orange;
+      case ReminderStatus.completed:
+        return Colors.green;
+      case ReminderStatus.canceled:
+        return Colors.red;
+    }
+  }
+
+  String _getStatusLabel(Reminder reminder) {
+    if (!reminder.isActive) {
+      if (reminder.status == ReminderStatus.completed) return 'Done';
+      if (reminder.status == ReminderStatus.canceled) return 'Canceled';
+      return 'Inactive';
+    }
+
+    switch (reminder.status) {
+      case ReminderStatus.active:
+        return 'Active';
+      case ReminderStatus.snoozed:
+        return 'Snoozed';
+      case ReminderStatus.completed:
+        return 'Done';
+      case ReminderStatus.canceled:
+        return 'Canceled';
     }
   }
 
@@ -326,9 +369,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 : Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        title: Text(
-                          reminder.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        title: Row(
+                          children: [
+                            Text(
+                              reminder.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(
+                                  reminder,
+                                ).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: _getStatusColor(reminder),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                _getStatusLabel(reminder),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getStatusColor(reminder),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
