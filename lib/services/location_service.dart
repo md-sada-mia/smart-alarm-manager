@@ -4,6 +4,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
+import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/services/notification_service.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
@@ -28,6 +29,9 @@ void onStart(ServiceInstance service) async {
 
   // State to track triggered fences to avoid duplicates
   final Set<int> triggeredReminderIds = {};
+
+  // State to track snoozed alarms to prevent re-triggering during snooze
+  final Set<int> snoozedReminderIds = {};
 
   // Get continuous stream
   StreamSubscription<Position>? positionStream;
@@ -59,6 +63,11 @@ void onStart(ServiceInstance service) async {
         final activeReminders = reminders.where((r) => r.isActive).toList();
 
         for (var reminder in activeReminders) {
+          // Skip if this reminder is currently snoozed
+          if (snoozedReminderIds.contains(reminder.id)) {
+            continue; // Don't trigger while snoozed
+          }
+
           double distance = Geolocator.distanceBetween(
             position.latitude,
             position.longitude,
@@ -133,6 +142,92 @@ void onStart(ServiceInstance service) async {
   service.on('stop_alarm').listen((event) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_alarm_active', false);
+  });
+
+  service.on('snooze_alarm').listen((event) async {
+    if (event != null &&
+        event.containsKey('reminder_id') &&
+        event.containsKey('snooze_minutes')) {
+      final int? reminderId = event['reminder_id'] as int?;
+      final int snoozeMinutes = event['snooze_minutes'] as int;
+
+      // Clear alarm active state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_alarm_active', false);
+
+      // Update reminder in database with snooze info
+      if (reminderId != null) {
+        try {
+          final reminder = await repository.getReminder(reminderId);
+          if (reminder != null) {
+            final snoozeUntil = DateTime.now().add(
+              Duration(minutes: snoozeMinutes),
+            );
+            final updated = reminder.copyWith(
+              status: ReminderStatus.snoozed,
+              snoozeUntil: snoozeUntil,
+            );
+            await repository.updateReminder(updated);
+          }
+        } catch (e) {
+          print('Error updating snooze in database: $e');
+        }
+      }
+
+      // Remove from triggered set to allow re-trigger after snooze
+      if (reminderId != null) {
+        triggeredReminderIds.remove(reminderId);
+
+        // Add to snoozed set to prevent re-triggering during snooze period
+        snoozedReminderIds.add(reminderId);
+      }
+
+      // Schedule a timer to re-trigger the alarm
+      Timer(Duration(minutes: snoozeMinutes), () async {
+        // Re-trigger the alarm after snooze duration
+        await prefs.setBool('is_alarm_active', true);
+        if (reminderId != null) {
+          await prefs.setInt('current_alarm_id', reminderId);
+
+          // Remove from snoozed set - now it can trigger again
+          snoozedReminderIds.remove(reminderId);
+
+          // Update reminder in database - reset to active status
+          try {
+            final reminder = await repository.getReminder(reminderId);
+            if (reminder != null) {
+              final updated = reminder.copyWith(
+                status: ReminderStatus.active,
+                clearSnooze: true, // Clear snoozeUntil
+              );
+              await repository.updateReminder(updated);
+            }
+          } catch (e) {
+            print('Error resetting snooze in database: $e');
+          }
+
+          // Notify main isolate to play alarm and show screen
+          service.invoke('trigger_alarm', {'id': reminderId});
+
+          // Force launch app
+          try {
+            if (Platform.isAndroid) {
+              const intent = AndroidIntent(
+                action: 'android.intent.action.MAIN',
+                category: 'android.intent.category.LAUNCHER',
+                package: 'com.smart_alarm_manager.smart_alarm_manager',
+                componentName:
+                    'com.smart_alarm_manager.smart_alarm_manager.MainActivity',
+                flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+              );
+              await intent.launch();
+            }
+          } catch (e) {
+            print("Error forcing app launch after snooze: $e");
+          }
+        }
+      });
+    }
   });
 
   service.on('stopService').listen((event) {

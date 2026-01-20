@@ -201,6 +201,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<Map<String, dynamic>?> _getSnoozeInfo(Reminder reminder) async {
+    // Check if reminder is in snoozed status
+    if (reminder.status == ReminderStatus.snoozed &&
+        reminder.snoozeUntil != null) {
+      final now = DateTime.now();
+
+      if (reminder.snoozeUntil!.isAfter(now)) {
+        // Still snoozed
+        final remaining = reminder.snoozeUntil!.difference(now);
+        return {'isSnoozed': true, 'remaining': remaining};
+      } else {
+        // Expired, update database to reset status
+        try {
+          final updated = reminder.copyWith(
+            status: ReminderStatus.active,
+            clearSnooze: true,
+          );
+          await _repository.updateReminder(updated);
+        } catch (e) {
+          print('Error resetting expired snooze: $e');
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String _formatSnoozeDuration(Duration duration) {
+    if (duration.inMinutes > 0) {
+      return "Snoozed ${duration.inMinutes}m ${duration.inSeconds % 60}s";
+    } else {
+      return "Snoozed ${duration.inSeconds}s";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -301,37 +336,94 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             if (reminder.description.isNotEmpty)
                               Text(reminder.description),
                             const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.near_me,
-                                  size: 14,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    distance != null
-                                        ? "${_formatDistance(distance)} away"
-                                        : "Calculated...",
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.radar,
-                                  size: 14,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "Radius: ${reminder.radius.toInt()}m",
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
+                            FutureBuilder<Map<String, dynamic>?>(
+                              future: _getSnoozeInfo(reminder),
+                              builder: (context, snapshot) {
+                                final snoozeInfo = snapshot.data;
+                                final isSnoozed =
+                                    snoozeInfo?['isSnoozed'] == true;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (isSnoozed) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.orange,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.snooze,
+                                              size: 16,
+                                              color: Colors.orange,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _formatSnoozeDuration(
+                                                snoozeInfo!['remaining']
+                                                    as Duration,
+                                              ),
+                                              style: const TextStyle(
+                                                color: Colors.orange,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.near_me,
+                                          size: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            distance != null
+                                                ? "${_formatDistance(distance)} away"
+                                                : "Calculated...",
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          Icons.radar,
+                                          size: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "Radius: ${reminder.radius.toInt()}m",
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),

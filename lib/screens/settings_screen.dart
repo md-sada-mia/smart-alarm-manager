@@ -19,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _alarmSoundPath;
   bool _isLoading = true;
   bool _isPreviewPlaying = false; // Track preview state locally
+  int _snoozeDuration = 5; // Snooze duration in minutes (default: 5)
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _pushNotificationEnabled =
           prefs.getBool('push_notification_enabled') ?? true;
       _alarmSoundPath = prefs.getString('alarm_sound_path');
+      _snoozeDuration = prefs.getInt('snooze_duration') ?? 5;
       _isLoading = false;
     });
   }
@@ -73,6 +75,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('push_notification_enabled', value);
     setState(() => _pushNotificationEnabled = value);
+  }
+
+  Future<void> _updateSnoozeDuration(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('snooze_duration', value);
+    setState(() => _snoozeDuration = value);
   }
 
   Future<void> _pickAlarmSound() async {
@@ -162,6 +170,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     onTap: _showSoundSourceDialog,
                   ),
+                const Divider(),
+                ListTile(
+                  title: const Text('Snooze Duration'),
+                  subtitle: Text('$_snoozeDuration minutes'),
+                  leading: const Icon(Icons.snooze),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      const Text('1 min'),
+                      Expanded(
+                        child: Slider(
+                          value: _snoozeDuration.toDouble(),
+                          min: 1,
+                          max: 15,
+                          divisions: 14,
+                          label: '$_snoozeDuration min',
+                          onChanged: (value) =>
+                              _updateSnoozeDuration(value.toInt()),
+                        ),
+                      ),
+                      const Text('15 min'),
+                    ],
+                  ),
+                ),
                 const Divider(),
                 const ListTile(
                   title: Text('About'),

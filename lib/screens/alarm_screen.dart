@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_alarm_manager/data/database_helper.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/services/audio_service.dart';
@@ -66,6 +67,39 @@ class _AlarmScreenState extends State<AlarmScreen>
     // Close screen
     if (mounted) {
       SystemNavigator.pop();
+    }
+  }
+
+  Future<void> _snoozeAlarm() async {
+    // Get snooze duration from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final snoozeDuration = prefs.getInt('snooze_duration') ?? 5;
+
+    // Stop current alarm sound
+    await AudioService().stopAlarm();
+
+    // Send signal to background service
+    final service = FlutterBackgroundService();
+    service.invoke('snooze_alarm', {
+      'reminder_id': widget.reminderId,
+      'snooze_minutes': snoozeDuration,
+    });
+
+    // Show confirmation
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alarm snoozed for $snoozeDuration minutes'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Close screen after brief delay to show snackbar
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        SystemNavigator.pop();
+      }
     }
   }
 
@@ -171,33 +205,65 @@ class _AlarmScreenState extends State<AlarmScreen>
 
             const Spacer(),
 
-            // Stop Button
+            // Snooze and Stop Buttons
             Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: _stopAlarm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Column(
+                children: [
+                  // Large Snooze Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 70,
+                    child: ElevatedButton.icon(
+                      onPressed: _snoozeAlarm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(35),
+                        ),
+                        elevation: 8,
+                      ),
+                      icon: const Icon(Icons.snooze, size: 32),
+                      label: const Text(
+                        "SNOOZE",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text(
-                    "STOP ALARM",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                  const SizedBox(height: 20),
+
+                  // Small Stop Button
+                  SizedBox(
+                    width: 200, // Smaller width
+                    height: 50, // Smaller height
+                    child: OutlinedButton(
+                      onPressed: _stopAlarm,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade300,
+                        side: BorderSide(color: Colors.red.shade300, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: const Text(
+                        "Stop Alarm",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
           ],
         ),
       ),

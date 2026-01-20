@@ -18,7 +18,12 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'smart_alarm_manager.db');
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: 2, // Incremented version for migration
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -31,9 +36,21 @@ class DatabaseHelper {
         longitude REAL,
         radius REAL,
         isActive INTEGER,
+        status TEXT DEFAULT 'active',
+        snoozeUntil TEXT,
         createdAt TEXT
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new columns for existing databases
+      await db.execute(
+        'ALTER TABLE reminders ADD COLUMN status TEXT DEFAULT "active"',
+      );
+      await db.execute('ALTER TABLE reminders ADD COLUMN snoozeUntil TEXT');
+    }
   }
 
   Future<int> insertReminder(Reminder reminder) async {

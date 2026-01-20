@@ -1,3 +1,6 @@
+// Reminder status enum
+enum ReminderStatus { active, snoozed, completed, canceled }
+
 class Reminder {
   final int? id;
   final String title;
@@ -6,6 +9,8 @@ class Reminder {
   final double longitude;
   final double radius;
   final bool isActive;
+  final ReminderStatus status;
+  final DateTime? snoozeUntil; // When snoozed alarm will re-trigger
   final DateTime createdAt;
 
   Reminder({
@@ -16,6 +21,8 @@ class Reminder {
     required this.longitude,
     required this.radius,
     this.isActive = true,
+    this.status = ReminderStatus.active,
+    this.snoozeUntil,
     required this.createdAt,
   });
 
@@ -28,11 +35,26 @@ class Reminder {
       'longitude': longitude,
       'radius': radius,
       'isActive': isActive ? 1 : 0,
+      'status': status.name, // Store as string: 'active', 'snoozed', etc.
+      'snoozeUntil': snoozeUntil?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };
   }
 
   factory Reminder.fromMap(Map<String, dynamic> map) {
+    // Parse status from string to enum
+    ReminderStatus status = ReminderStatus.active;
+    if (map['status'] != null) {
+      try {
+        status = ReminderStatus.values.firstWhere(
+          (e) => e.name == map['status'],
+          orElse: () => ReminderStatus.active,
+        );
+      } catch (e) {
+        status = ReminderStatus.active;
+      }
+    }
+
     return Reminder(
       id: map['id'],
       title: map['title'],
@@ -41,6 +63,10 @@ class Reminder {
       longitude: map['longitude'],
       radius: map['radius'],
       isActive: map['isActive'] == 1,
+      status: status,
+      snoozeUntil: map['snoozeUntil'] != null
+          ? DateTime.parse(map['snoozeUntil'])
+          : null,
       createdAt: DateTime.parse(map['createdAt']),
     );
   }
@@ -53,6 +79,9 @@ class Reminder {
     double? longitude,
     double? radius,
     bool? isActive,
+    ReminderStatus? status,
+    DateTime? snoozeUntil,
+    bool clearSnooze = false, // Flag to clear snooze
     DateTime? createdAt,
   }) {
     return Reminder(
@@ -63,6 +92,8 @@ class Reminder {
       longitude: longitude ?? this.longitude,
       radius: radius ?? this.radius,
       isActive: isActive ?? this.isActive,
+      status: status ?? this.status,
+      snoozeUntil: clearSnooze ? null : (snoozeUntil ?? this.snoozeUntil),
       createdAt: createdAt ?? this.createdAt,
     );
   }
