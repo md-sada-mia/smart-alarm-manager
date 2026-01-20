@@ -32,6 +32,7 @@ class NotificationService {
       importance: Importance.max,
       playSound: true,
       enableVibration: true,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
     );
 
     await flutterLocalNotificationsPlugin
@@ -52,10 +53,12 @@ class NotificationService {
           channelName,
           channelDescription: channelDescription,
           importance: Importance.max,
-          priority: Priority.high,
+          priority: Priority.max,
           ticker: 'ticker',
           fullScreenIntent: true, // For alarm-like behavior
           category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
         );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,

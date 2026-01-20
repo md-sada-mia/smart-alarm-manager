@@ -30,6 +30,22 @@ class PermissionService {
     return status.isGranted;
   }
 
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    var status = await Permission.ignoreBatteryOptimizations.status;
+    if (status.isDenied) {
+      status = await Permission.ignoreBatteryOptimizations.request();
+    }
+    return status.isGranted;
+  }
+
+  Future<bool> requestSystemAlertWindow() async {
+    var status = await Permission.systemAlertWindow.status;
+    if (status.isDenied) {
+      status = await Permission.systemAlertWindow.request();
+    }
+    return status.isGranted;
+  }
+
   Future<bool> checkPermissions() async {
     return await Permission.locationAlways.isGranted &&
         await Permission.notification.isGranted;

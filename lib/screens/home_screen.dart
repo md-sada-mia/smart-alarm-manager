@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/services/permission_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_alarm_manager/services/location_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -43,14 +44,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!hasPerms) {
       await PermissionService().requestLocationPermissions();
       await PermissionService().requestNotificationPermissions();
+      await PermissionService().requestIgnoreBatteryOptimizations();
 
       // Permissions granted, now we can safely start the service
       await LocationService().initialize();
+      // Re-initialize and start fresh with permissions
+      await LocationService().initialize();
     } else {
       // Permissions already granted.
-      // If main.dart didn't start the service (e.g. race condition or edge case), we could ensure it here.
-      // But typically checking running status is enough.
-      // For robustness:
       final service = FlutterBackgroundService();
       if (!(await service.isRunning())) {
         await LocationService().initialize();
@@ -59,6 +60,56 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _loadReminders();
     _getCurrentLocation();
+
+    // Check for advanced reliability permissions
+    _checkReliabilityPermissions();
+  }
+
+  Future<void> _checkReliabilityPermissions() async {
+    // Check if we already have the permissions
+    if (await Permission.ignoreBatteryOptimizations.isGranted &&
+        await Permission.systemAlertWindow.isGranted) {
+      return;
+    }
+
+    // Show guide if not mounted
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Optimize Experience'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('For the best alarm reliability, please enable:'),
+            SizedBox(height: 12),
+            Text(
+              '1. Ignore Battery Optimization\n   (Prevents app from being killed in background)',
+            ),
+            SizedBox(height: 8),
+            Text(
+              '2. Display Over Other Apps\n   (Allows Alarm screen to show immediately over lock screen)',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await PermissionService().requestIgnoreBatteryOptimizations();
+              await PermissionService().requestSystemAlertWindow();
+            },
+            child: const Text('Fix Now'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _getCurrentLocation() async {
