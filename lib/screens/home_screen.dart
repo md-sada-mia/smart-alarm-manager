@@ -15,18 +15,22 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final ReminderRepository _repository = ReminderRepository();
   List<Reminder> _reminders = [];
   Position? _currentPosition;
   bool _isLoading = true;
   Timer? _timer;
+  Completer<void>? _resumeCompleter;
 
   @required
   @override
   void initState() {
     super.initState();
-    _checkPermissionsAndLoad();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissionsAndLoad();
+    });
     // Refresh location every 10 seconds to update distances
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (mounted) _getCurrentLocation();
@@ -35,8 +39,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _resumeCompleter?.complete(); // Clean up
     _timer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeCompleter?.complete();
+      _resumeCompleter = null;
+    }
+  }
+
+  Future<void> _waitForResume() async {
+    _resumeCompleter = Completer<void>();
+    await _resumeCompleter!.future;
   }
 
   Future<void> _checkPermissionsAndLoad() async {
@@ -44,25 +63,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!hasPerms) {
       await PermissionService().requestLocationPermissions();
       await PermissionService().requestNotificationPermissions();
-      await PermissionService().requestIgnoreBatteryOptimizations();
 
-      // Permissions granted, now we can safely start the service
-      await LocationService().initialize();
-      // Re-initialize and start fresh with permissions
-      await LocationService().initialize();
-    } else {
-      // Permissions already granted.
-      final service = FlutterBackgroundService();
-      if (!(await service.isRunning())) {
-        await LocationService().initialize();
-      }
+      // Initial standard checks
     }
+
+    // Now start blocking check for reliability
+    // This MUST happen before we fully initialize logic that depends on it
+    await _checkReliabilityPermissions();
+
+    // Permissions granted (or passed blocking check), now we can safely start the service
+    await LocationService().initialize();
 
     _loadReminders();
     _getCurrentLocation();
-
-    // Check for advanced reliability permissions
-    _checkReliabilityPermissions();
   }
 
   Future<void> _checkReliabilityPermissions() async {
@@ -73,63 +86,76 @@ class _HomeScreenState extends State<HomeScreen> {
         await Permission.ignoreBatteryOptimizations.isGranted;
     bool overlayGranted = await Permission.systemAlertWindow.isGranted;
 
-    if (batteryOptimized && overlayGranted) {
-      return;
-    }
+    while (!batteryOptimized || !overlayGranted) {
+      if (!mounted) return;
 
-    // Show blocking dialog
-    await showDialog(
-      context: context,
-      barrierDismissible: false, // Blocking
-      builder: (context) => PopScope(
-        canPop: false, // Prevent back button
-        child: AlertDialog(
-          title: const Text('Permission Required'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'The following permissions are required for the app to function properly:',
-              ),
-              const SizedBox(height: 12),
-              if (!batteryOptimized)
+      await showDialog(
+        context: context,
+        barrierDismissible: false, // Blocking
+        builder: (context) => PopScope(
+          canPop: false, // Prevent back button
+          child: AlertDialog(
+            title: const Text('Permission Required'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const Text(
-                  '• Ignore Battery Optimization\n  (Required for background reliability)',
+                  'The following permissions are required for the app to function properly:',
                 ),
-              if (!overlayGranted)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    '• Display Over Other Apps\n  (Required for alarm screen visibility)',
+                const SizedBox(height: 12),
+                if (!batteryOptimized)
+                  const Text(
+                    '• Ignore Battery Optimization\n  (Required for background reliability)',
                   ),
-                ),
+                if (!overlayGranted)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      '• Display Over Other Apps\n  (Required for alarm screen visibility)',
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog to proceed to requests
+                },
+                child: const Text('Allow'),
+              ),
             ],
           ),
-          actions: [
-            FilledButton(
-              onPressed: () async {
-                Navigator.pop(
-                  context,
-                ); // Close dialog temporarily to allow interaction
-
-                if (!batteryOptimized) {
-                  await PermissionService().requestIgnoreBatteryOptimizations();
-                }
-
-                if (!overlayGranted) {
-                  await PermissionService().requestSystemAlertWindow();
-                }
-
-                // Re-check loops
-                _checkReliabilityPermissions();
-              },
-              child: const Text('Allow'),
-            ),
-          ],
         ),
-      ),
-    );
+      );
+
+      // Dialog closed, request permissions and WAIT for user to come back
+      if (!batteryOptimized) {
+        // Only request if still needed
+        await PermissionService().requestIgnoreBatteryOptimizations();
+        // Wait for app to resume (user returning from settings)
+        await _waitForResume();
+        // Update status
+        batteryOptimized =
+            await Permission.ignoreBatteryOptimizations.isGranted;
+      }
+
+      // Check again before next request
+      if (!overlayGranted) {
+        await PermissionService().requestSystemAlertWindow();
+        // Wait for app to resume
+        await _waitForResume();
+        // Update status
+        overlayGranted = await Permission.systemAlertWindow.isGranted;
+      }
+
+      // Slight delay to ensure permission status is propagated
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Re-read both just in case
+      batteryOptimized = await Permission.ignoreBatteryOptimizations.isGranted;
+      overlayGranted = await Permission.systemAlertWindow.isGranted;
+    }
   }
 
   Future<void> _getCurrentLocation() async {
