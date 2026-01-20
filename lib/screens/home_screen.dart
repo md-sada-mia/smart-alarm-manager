@@ -44,19 +44,17 @@ class _HomeScreenState extends State<HomeScreen> {
       await PermissionService().requestLocationPermissions();
       await PermissionService().requestNotificationPermissions();
 
-      // Permissions just granted. The background service might be running in a "zombie" state
-      // (started by main.dart without permissions). We need to restart it.
-      final service = FlutterBackgroundService();
-      if (await service.isRunning()) {
-        service.invoke("stopService");
-        await Future.delayed(
-          const Duration(seconds: 1),
-        ); // Give it time to shut down
-      }
-
-      // Re-initialize and start fresh with permissions
+      // Permissions granted, now we can safely start the service
       await LocationService().initialize();
-      await service.startService();
+    } else {
+      // Permissions already granted.
+      // If main.dart didn't start the service (e.g. race condition or edge case), we could ensure it here.
+      // But typically checking running status is enough.
+      // For robustness:
+      final service = FlutterBackgroundService();
+      if (!(await service.isRunning())) {
+        await LocationService().initialize();
+      }
     }
 
     _loadReminders();

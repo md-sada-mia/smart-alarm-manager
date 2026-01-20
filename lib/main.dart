@@ -9,6 +9,7 @@ import 'screens/settings_screen.dart';
 import 'screens/alarm_screen.dart';
 import 'services/location_service.dart';
 import 'services/audio_service.dart';
+import 'services/permission_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -16,7 +17,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Services
-  await LocationService().initialize();
+  // Only start service if permissions are already granted to avoid "zombie" state
+  if (await PermissionService().checkPermissions()) {
+    await LocationService().initialize();
+  }
 
   runApp(const MyApp());
 }
