@@ -25,7 +25,10 @@ class AudioService {
       _audioPlayer.onPlayerStateChanged;
 
   Future<void> playAlarm() async {
-    if (_isPlaying) return;
+    // If already playing, stop the current alarm to restart with the new one
+    if (_isPlaying) {
+      await stopAlarm();
+    }
 
     final prefs = await SharedPreferences.getInstance();
     await prefs

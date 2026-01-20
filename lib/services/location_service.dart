@@ -37,6 +37,9 @@ void onStart(ServiceInstance service) async {
   positionStream =
       Geolocator.getPositionStream(locationSettings: locationSettings).listen(
         (Position position) async {
+          // Ignore inaccurate readings to prevent false alarms
+          if (position.accuracy > 100) return;
+
           // if (service is AndroidServiceInstance) {
           //   if (await service.isForegroundService()) {
           //     service.setForegroundNotificationInfo(
@@ -117,6 +120,12 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
     positionStream?.cancel();
   });
+
+  // Listener to reset state (e.g., on app restart)
+  service.on('reset_state').listen((event) {
+    print("Background service state reset: clearing triggered reminders");
+    triggeredReminderIds.clear();
+  });
 }
 
 class LocationService {
@@ -149,5 +158,8 @@ class LocationService {
         onBackground: onIosBackground,
       ),
     );
+
+    // Reset state on app launch to ensure fresh triggers
+    service.invoke('reset_state');
   }
 }

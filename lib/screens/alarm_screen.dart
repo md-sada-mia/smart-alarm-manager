@@ -22,6 +22,9 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void initState() {
     super.initState();
+    // Ensure alarm plays even if opened via Full Screen Intent (where main.dart might miss the event)
+    AudioService().playAlarm();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),

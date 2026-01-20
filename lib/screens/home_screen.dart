@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/services/permission_service.dart';
+import 'package:smart_alarm_manager/services/location_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,7 +43,22 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!hasPerms) {
       await PermissionService().requestLocationPermissions();
       await PermissionService().requestNotificationPermissions();
+
+      // Permissions just granted. The background service might be running in a "zombie" state
+      // (started by main.dart without permissions). We need to restart it.
+      final service = FlutterBackgroundService();
+      if (await service.isRunning()) {
+        service.invoke("stopService");
+        await Future.delayed(
+          const Duration(seconds: 1),
+        ); // Give it time to shut down
+      }
+
+      // Re-initialize and start fresh with permissions
+      await LocationService().initialize();
+      await service.startService();
     }
+
     _loadReminders();
     _getCurrentLocation();
   }
