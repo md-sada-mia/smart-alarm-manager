@@ -55,10 +55,7 @@ class NotificationService {
           importance: Importance.max,
           priority: Priority.max,
           ticker: 'ticker',
-          fullScreenIntent: true, // For alarm-like behavior
-          category: AndroidNotificationCategory.alarm,
           visibility: NotificationVisibility.public,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
         );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
