@@ -112,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const Padding(
                     padding: EdgeInsets.only(top: 8.0),
                     child: Text(
-                      '• Display Over Other Apps\n  (Required for alarm screen visibility)',
+                      '• Display Over Other Apps\n  (Find "Smart Alarm Manager" in the list and enable it)',
                     ),
                   ),
               ],
