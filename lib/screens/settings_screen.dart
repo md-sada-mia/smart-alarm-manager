@@ -185,8 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _alarmSoundPath = path;
         });
 
-        // Auto-play preview
-        _previewSound(path);
+        // Auto-play preview removed as per user request
       }
     } catch (e) {
       print("Error picking system ringtone: $e");
