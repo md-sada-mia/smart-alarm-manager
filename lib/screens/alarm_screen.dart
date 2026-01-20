@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:smart_alarm_manager/data/database_helper.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
@@ -62,15 +63,9 @@ class _AlarmScreenState extends State<AlarmScreen>
     service.invoke('stop_alarm');
 
     // Close screen
+    // Close screen
     if (mounted) {
-      // Assuming we pushed this route, we pop.
-      // Or if checking from main, we might want to replaceRoute to Home.
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      } else {
-        // Navigate back to home if we can't pop (e.g. app launched directly to here)
-        Navigator.pushReplacementNamed(context, '/');
-      }
+      SystemNavigator.pop();
     }
   }
 
