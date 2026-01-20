@@ -62,11 +62,15 @@ class AudioService {
           print("Error playing sound: $e");
         }
       } else {
-        // Default behavior: We might want to play a bundled asset or just log.
-        // Since we don't have assets configured yet, we rely on the notification sound
-        // if push notification is enabled.
-        // If push is disabled but sound is enabled, user gets vibration only unless we bundle a sound.
-        print("Alarm Sound Triggered (Default/Simulated)");
+        // Default behavior: Use system default alarm sound
+        _isUsingNativeSound = true;
+        try {
+          await platform.invokeMethod('playAlarmSound', {
+            'uri': null, // Null triggers default sound in MainActivity
+          });
+        } catch (e) {
+          print("Error playing default sound: $e");
+        }
       }
     }
   }

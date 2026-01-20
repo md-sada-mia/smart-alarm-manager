@@ -58,20 +58,20 @@ class MainActivity: FlutterActivity() {
                 result.success(true)
             } else if (call.method == "playAlarmSound") {
                 val uriString = call.argument<String>("uri")
-                if (uriString != null) {
-                    try {
-                        val uri = Uri.parse(uriString)
-                        val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-                        alarmRingtone?.stop() // Stop existing alarm
-                        alarmRingtone = ringtone
-                        ringtone.isLooping = true // Enable looping for alarm
-                        ringtone.play()
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("PLAY_ALARM_ERROR", e.message, null)
+                try {
+                    val uri = if (uriString != null) {
+                        Uri.parse(uriString)
+                    } else {
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                     }
-                } else {
-                    result.error("INVALID_URI", "URI is null", null)
+                    val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
+                    alarmRingtone?.stop() // Stop existing alarm
+                    alarmRingtone = ringtone
+                    ringtone.isLooping = true // Enable looping for alarm
+                    ringtone.play()
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("PLAY_ALARM_ERROR", e.message, null)
                 }
             } else if (call.method == "stopAlarmSound") {
                 alarmRingtone?.stop()
