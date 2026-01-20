@@ -1,29 +1,86 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_screen.dart';
 import 'screens/add_reminder_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/alarm_screen.dart';
 import 'services/location_service.dart';
-import 'services/notification_service.dart';
-import 'services/permission_service.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Services
   await LocationService().initialize();
-  // NotificationService init is called within LocationService, but we can call it here too to be sure for UI foreground usage logic if any.
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  StreamSubscription? _serviceSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAlarmState();
+    _listenToBackgroundService();
+  }
+
+  void _listenToBackgroundService() {
+    // Listen for events from background service while app is in foreground/background
+    _serviceSubscription = FlutterBackgroundService()
+        .on('trigger_alarm')
+        .listen((event) {
+          if (event != null && event.containsKey('id')) {
+            _navigateToAlarmScreen(event['id'] as int);
+          }
+        });
+  }
+
+  Future<void> _checkAlarmState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isAlarmActive = prefs.getBool('is_alarm_active') ?? false;
+    final int? reminderId = prefs.getInt('current_alarm_id');
+
+    if (isAlarmActive && reminderId != null) {
+      // Small delay to ensure navigator is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToAlarmScreen(reminderId);
+      });
+    }
+  }
+
+  void _navigateToAlarmScreen(int reminderId) {
+    if (navigatorKey.currentState != null) {
+      // Check if we are already on the alarm screen to avoid duplicates
+      // This is a bit tricky without route checking, but we can just pushReplacement
+      // or push and let the user handle it.
+      // Simplified: Just push.
+      navigatorKey.currentState!.pushNamed('/alarm', arguments: reminderId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _serviceSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Smart Alarm Manager',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -50,10 +107,21 @@ class MyApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       initialRoute: '/',
+      onGenerateRoute: (settings) {
+        if (settings.name == '/alarm') {
+          final id = settings.arguments as int?;
+          return MaterialPageRoute(
+            builder: (context) => AlarmScreen(reminderId: id),
+          );
+        }
+        return null; // Let main routes checking below handle it? No, routes map takes precedence?
+        // Mix of onGenerateRoute and routes can be tricky. Let's use routes for static and onGenerate for dynamic.
+      },
       routes: {
         '/': (context) => const HomeScreen(),
         '/add': (context) => const AddReminderScreen(),
         '/settings': (context) => const SettingsScreen(),
+        // '/alarm' handled in onGenerateRoute for arguments
       },
     );
   }

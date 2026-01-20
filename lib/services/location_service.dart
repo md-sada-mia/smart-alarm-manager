@@ -95,6 +95,10 @@ void onStart(ServiceInstance service) async {
                   // AudioService is singleton, already checked above
                   await audioService.playAlarm();
 
+                  // Set State
+                  await prefs.setBool('is_alarm_active', true);
+                  await prefs.setInt('current_alarm_id', reminder.id!);
+
                   service.invoke('trigger_alarm', {'id': reminder.id});
                 }
               } else {
@@ -113,6 +117,12 @@ void onStart(ServiceInstance service) async {
           print("Location stream error: $e");
         },
       );
+
+  service.on('stop_alarm').listen((event) async {
+    await AudioService().stopAlarm();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_alarm_active', false);
+  });
 
   service.on('stopService').listen((event) {
     service.stopSelf();
