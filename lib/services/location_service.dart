@@ -5,6 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/services/notification_service.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+import 'dart:io';
 
 // Top-level entry points for background service
 @pragma('vm:entry-point')
@@ -34,82 +37,98 @@ void onStart(ServiceInstance service) async {
     distanceFilter: 10, // Check every 10 meters
   );
 
-  positionStream =
-      Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-        (Position position) async {
-          // Ignore inaccurate readings to prevent false alarms
-          if (position.accuracy > 100) return;
+  positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+    (Position position) async {
+      // Ignore inaccurate readings to prevent false alarms
+      if (position.accuracy > 100) return;
 
-          // if (service is AndroidServiceInstance) {
-          //   if (await service.isForegroundService()) {
-          //     service.setForegroundNotificationInfo(
-          //       title: "Smart Alarm Manager",
-          //       content:
-          //           "Tracking Location: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}",
-          //     );
-          //   }
-          // }
+      // if (service is AndroidServiceInstance) {
+      //   if (await service.isForegroundService()) {
+      //     service.setForegroundNotificationInfo(
+      //       title: "Smart Alarm Manager",
+      //       content:
+      //           "Tracking Location: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}",
+      //     );
+      //   }
+      // }
 
-          // Check Geofences
-          try {
-            final reminders = await repository.getReminders();
-            // Filter only active reminders
-            final activeReminders = reminders.where((r) => r.isActive).toList();
+      // Check Geofences
+      try {
+        final reminders = await repository.getReminders();
+        // Filter only active reminders
+        final activeReminders = reminders.where((r) => r.isActive).toList();
 
-            for (var reminder in activeReminders) {
-              double distance = Geolocator.distanceBetween(
-                position.latitude,
-                position.longitude,
-                reminder.latitude,
-                reminder.longitude,
-              );
+        for (var reminder in activeReminders) {
+          double distance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            reminder.latitude,
+            reminder.longitude,
+          );
 
-              // Check radius
-              if (distance <= reminder.radius) {
-                // Inside
-                if (!triggeredReminderIds.contains(reminder.id)) {
-                  // Enter Event
-                  triggeredReminderIds.add(reminder.id!);
+          // Check radius
+          if (distance <= reminder.radius) {
+            // Inside
+            if (!triggeredReminderIds.contains(reminder.id)) {
+              // Enter Event
+              triggeredReminderIds.add(reminder.id!);
 
-                  // Check Notification Preference
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.reload(); // Force reload from disk
-                  final bool showNotification =
-                      prefs.getBool('push_notification_enabled') ?? true;
+              // Check Notification Preference
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.reload(); // Force reload from disk
+              final bool showNotification =
+                  prefs.getBool('push_notification_enabled') ?? true;
 
-                  if (showNotification) {
-                    await notificationService.showNotification(
-                      id: reminder.id!,
-                      title: "Arrived: ${reminder.title}",
-                      body: reminder.description.isNotEmpty
-                          ? reminder.description
-                          : "You are within ${reminder.radius.toInt()}m",
-                    );
-                  }
+              if (showNotification) {
+                await notificationService.showNotification(
+                  id: reminder.id!,
+                  title: "Arrived: ${reminder.title}",
+                  body: reminder.description.isNotEmpty
+                      ? reminder.description
+                      : "You are within ${reminder.radius.toInt()}m",
+                );
+              }
 
-                  // Set State
-                  await prefs.setBool('is_alarm_active', true);
-                  await prefs.setInt('current_alarm_id', reminder.id!);
+              // Set State
+              await prefs.setBool('is_alarm_active', true);
+              await prefs.setInt('current_alarm_id', reminder.id!);
 
-                  // Notify main isolate to play alarm and show screen
-                  service.invoke('trigger_alarm', {'id': reminder.id});
+              // Notify main isolate to play alarm and show screen
+              service.invoke('trigger_alarm', {'id': reminder.id});
+
+              // Force launch app (requires 'Display over other apps' permission on Android 10+)
+              try {
+                if (Platform.isAndroid) {
+                  const intent = AndroidIntent(
+                    action: 'android.intent.action.MAIN',
+                    category: 'android.intent.category.LAUNCHER',
+                    package: 'com.smart_alarm_manager.smart_alarm_manager',
+                    componentName:
+                        'com.smart_alarm_manager.smart_alarm_manager.MainActivity',
+                    flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+                  );
+                  await intent.launch();
                 }
-              } else {
-                // Outside
-                if (triggeredReminderIds.contains(reminder.id)) {
-                  // Exit Event - Reset trigger
-                  triggeredReminderIds.remove(reminder.id);
-                }
+              } catch (e) {
+                print("Error forcing app launch: $e");
               }
             }
-          } catch (e) {
-            print("Error in background loop: $e");
+          } else {
+            // Outside
+            if (triggeredReminderIds.contains(reminder.id)) {
+              // Exit Event - Reset trigger
+              triggeredReminderIds.remove(reminder.id);
+            }
           }
-        },
-        onError: (e) {
-          print("Location stream error: $e");
-        },
-      );
+        }
+      } catch (e) {
+        print("Error in background loop: $e");
+      }
+    },
+    onError: (e) {
+      print("Location stream error: $e");
+    },
+  );
 
   service.on('stop_alarm').listen((event) async {
     final prefs = await SharedPreferences.getInstance();

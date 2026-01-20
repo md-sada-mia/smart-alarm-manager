@@ -47,7 +47,7 @@ dependencies:
   flutter_background_service: ^5.1.0
   shared_preferences: ^2.5.4
   file_picker: ^8.0.0
-  android_intent_plus: ^6.0.0
+  android_intent_plus: ^5.0.0
 
 dev_dependencies:
   flutter_test:
