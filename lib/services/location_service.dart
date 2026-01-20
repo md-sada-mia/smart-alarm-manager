@@ -78,6 +78,7 @@ void onStart(ServiceInstance service) async {
 
                   // Check Notification Preference
                   final prefs = await SharedPreferences.getInstance();
+                  await prefs.reload(); // Force reload from disk
                   final bool showNotification =
                       prefs.getBool('push_notification_enabled') ?? true;
 

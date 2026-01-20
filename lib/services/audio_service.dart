@@ -17,10 +17,16 @@ class AudioService {
 
   bool get isPlaying => _isPlaying;
 
+  Stream<void> get onPlayerComplete => _audioPlayer.onPlayerComplete;
+  Stream<PlayerState> get onPlayerStateChanged =>
+      _audioPlayer.onPlayerStateChanged;
+
   Future<void> playAlarm() async {
     if (_isPlaying) return;
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs
+        .reload(); // Force reload from disk to get latest settings from UI
     final bool vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
     final bool soundEnabled = prefs.getBool('sound_enabled') ?? true;
     final String? alarmSoundPath = prefs.getString('alarm_sound_path');
@@ -67,6 +73,26 @@ class AudioService {
         if (!_isPlaying) break;
       }
     }
+  }
+
+  Future<void> playSoundPreview(String path) async {
+    // Stop any existing playback
+    await _audioPlayer.stop();
+    _audioPlayer.setReleaseMode(ReleaseMode.stop); // Don't loop for preview
+
+    try {
+      if (path.startsWith('content://')) {
+        await _audioPlayer.play(UrlSource(path));
+      } else if (File(path).existsSync()) {
+        await _audioPlayer.play(DeviceFileSource(path));
+      }
+    } catch (e) {
+      print("Error playing preview: $e");
+    }
+  }
+
+  Future<void> stopPreview() async {
+    await _audioPlayer.stop();
   }
 
   Future<void> stopAlarm() async {

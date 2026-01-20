@@ -13,6 +13,7 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.smart_alarm_manager/settings"
     private val REQUEST_CODE_PICK_RINGTONE = 1001
     private var pendingResult: MethodChannel.Result? = null
+    private var currentRingtone: android.media.Ringtone? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
@@ -29,6 +30,31 @@ class MainActivity: FlutterActivity() {
                 intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alarm Tone")
                 intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, null as Uri?)
                 startActivityForResult(intent, REQUEST_CODE_PICK_RINGTONE)
+            } else if (call.method == "bringToForeground") {
+                val intent = Intent(context, MainActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                context.startActivity(intent)
+                result.success(true)
+            } else if (call.method == "playSystemRingtone") {
+                val uriString = call.argument<String>("uri")
+                if (uriString != null) {
+                    try {
+                        val uri = Uri.parse(uriString)
+                        val ringtone = RingtoneManager.getRingtone(applicationContext, uri)
+                        currentRingtone?.stop() // Stop existing
+                        currentRingtone = ringtone
+                        ringtone.play()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("PLAY_ERROR", e.message, null)
+                    }
+                } else {
+                     result.error("INVALID_URI", "URI is null", null)
+                }
+            } else if (call.method == "stopSystemRingtone") {
+                currentRingtone?.stop()
+                currentRingtone = null
+                result.success(true)
             } else {
                 result.notImplemented()
             }
