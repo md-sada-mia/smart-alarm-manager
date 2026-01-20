@@ -102,7 +102,7 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFFFF00FF),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
@@ -114,7 +114,7 @@ class _MyAppState extends State<MyApp> {
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFFFF00FF),
           brightness: Brightness.dark,
         ),
         useMaterial3: true,

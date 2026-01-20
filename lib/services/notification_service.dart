@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -11,7 +12,7 @@ class NotificationService {
 
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/launcher_icon');
+        AndroidInitializationSettings('@drawable/ic_notification');
 
     // iOS settings can be added here
     final InitializationSettings initializationSettings =
@@ -54,6 +55,8 @@ class NotificationService {
           channelDescription: channelDescription,
           importance: Importance.max,
           priority: Priority.max,
+          icon: '@drawable/ic_notification',
+          color: const Color(0xFFFF00FF),
           ticker: 'ticker',
           visibility: NotificationVisibility.public,
         );
