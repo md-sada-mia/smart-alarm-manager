@@ -55,15 +55,54 @@ class _AlarmScreenState extends State<AlarmScreen>
     }
   }
 
-  Future<void> _stopAlarm() async {
+  Future<void> _doneAlarm() async {
     // Stop audio/vibration from main isolate (method channels work here)
     await AudioService().stopAlarm();
+
+    // Update reminder status to completed in database
+    if (widget.reminderId != null) {
+      try {
+        final dbHelper = DatabaseHelper();
+        final reminders = await dbHelper.getReminders();
+        final reminder = reminders.firstWhere((r) => r.id == widget.reminderId);
+        final updated = reminder.copyWith(status: ReminderStatus.completed);
+        await dbHelper.updateReminder(updated);
+      } catch (e) {
+        print('Error marking reminder as done: $e');
+      }
+    }
 
     // Send signal to background service to update state
     final service = FlutterBackgroundService();
     service.invoke('stop_alarm');
 
     // Close screen
+    if (mounted) {
+      SystemNavigator.pop();
+    }
+  }
+
+  Future<void> _cancelAlarm() async {
+    // Stop audio/vibration from main isolate (method channels work here)
+    await AudioService().stopAlarm();
+
+    // Update reminder status to canceled in database
+    if (widget.reminderId != null) {
+      try {
+        final dbHelper = DatabaseHelper();
+        final reminders = await dbHelper.getReminders();
+        final reminder = reminders.firstWhere((r) => r.id == widget.reminderId);
+        final updated = reminder.copyWith(status: ReminderStatus.canceled);
+        await dbHelper.updateReminder(updated);
+      } catch (e) {
+        print('Error marking reminder as canceled: $e');
+      }
+    }
+
+    // Send signal to background service to update state
+    final service = FlutterBackgroundService();
+    service.invoke('stop_alarm');
+
     // Close screen
     if (mounted) {
       SystemNavigator.pop();
@@ -237,28 +276,86 @@ class _AlarmScreenState extends State<AlarmScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // Small Stop Button
-                  SizedBox(
-                    width: 200, // Smaller width
-                    height: 50, // Smaller height
-                    child: OutlinedButton(
-                      onPressed: _stopAlarm,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade300,
-                        side: BorderSide(color: Colors.red.shade300, width: 2),
-                        shape: RoundedRectangleBorder(
+                  // Done Button with 3-dot Menu
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Done Button
+                      SizedBox(
+                        width: 180,
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: _doneAlarm,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green.shade300,
+                            side: BorderSide(
+                              color: Colors.green.shade300,
+                              width: 2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.check_circle_outline,
+                            size: 20,
+                          ),
+                          label: const Text(
+                            "Done",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 3-dot Menu
+                      Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white30),
                           borderRadius: BorderRadius.circular(25),
                         ),
-                      ),
-                      child: const Text(
-                        "Stop Alarm",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            color: Colors.white,
+                          ),
+                          color: Colors.grey[900],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onSelected: (value) {
+                            if (value == 'cancel') {
+                              _cancelAlarm();
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => [
+                            PopupMenuItem<String>(
+                              value: 'cancel',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.cancel_outlined,
+                                    color: Colors.red.shade300,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Cancel Reminder',
+                                    style: TextStyle(
+                                      color: Colors.red.shade300,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
