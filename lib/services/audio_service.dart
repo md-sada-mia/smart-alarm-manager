@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:vibration/vibration.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -14,6 +15,8 @@ class AudioService {
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
+  bool _isUsingNativeSound = false;
+  static const platform = MethodChannel('com.smart_alarm_manager/settings');
 
   bool get isPlaying => _isPlaying;
 
@@ -38,15 +41,18 @@ class AudioService {
     }
 
     if (soundEnabled) {
-      _audioPlayer.setReleaseMode(ReleaseMode.loop);
-
       if (alarmSoundPath != null) {
         try {
           if (alarmSoundPath.startsWith('content://')) {
-            // System Ringtone
-            await _audioPlayer.play(UrlSource(alarmSoundPath));
+            // System Ringtone - Use native Android RingtoneManager
+            _isUsingNativeSound = true;
+            await platform.invokeMethod('playAlarmSound', {
+              'uri': alarmSoundPath,
+            });
           } else if (File(alarmSoundPath).existsSync()) {
-            // Custom File
+            // Custom File - Use audioplayers
+            _isUsingNativeSound = false;
+            _audioPlayer.setReleaseMode(ReleaseMode.loop);
             await _audioPlayer.play(DeviceFileSource(alarmSoundPath));
           }
         } catch (e) {
@@ -97,7 +103,21 @@ class AudioService {
 
   Future<void> stopAlarm() async {
     _isPlaying = false;
+
+    // Stop native sound if it was being used
+    if (_isUsingNativeSound) {
+      try {
+        await platform.invokeMethod('stopAlarmSound');
+      } catch (e) {
+        print("Error stopping native sound: $e");
+      }
+      _isUsingNativeSound = false;
+    }
+
+    // Stop audioplayer
     await _audioPlayer.stop();
+
+    // Cancel vibration
     Vibration.cancel();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:smart_alarm_manager/data/database_helper.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
+import 'package:smart_alarm_manager/services/audio_service.dart';
 
 class AlarmScreen extends StatefulWidget {
   final int? reminderId;
@@ -50,7 +51,10 @@ class _AlarmScreenState extends State<AlarmScreen>
   }
 
   Future<void> _stopAlarm() async {
-    // Send signal to background service to stop audio
+    // Stop audio/vibration from main isolate (method channels work here)
+    await AudioService().stopAlarm();
+
+    // Send signal to background service to update state
     final service = FlutterBackgroundService();
     service.invoke('stop_alarm');
 

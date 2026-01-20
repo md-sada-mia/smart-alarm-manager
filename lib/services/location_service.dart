@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/services/notification_service.dart';
-import 'package:smart_alarm_manager/services/audio_service.dart';
 
 // Top-level entry points for background service
 @pragma('vm:entry-point')
@@ -66,13 +65,6 @@ void onStart(ServiceInstance service) async {
               if (distance <= reminder.radius) {
                 // Inside
                 if (!triggeredReminderIds.contains(reminder.id)) {
-                  final AudioService audioService = AudioService();
-
-                  // SKIP if already playing an alarm
-                  if (audioService.isPlaying) {
-                    continue;
-                  }
-
                   // Enter Event
                   triggeredReminderIds.add(reminder.id!);
 
@@ -92,14 +84,11 @@ void onStart(ServiceInstance service) async {
                     );
                   }
 
-                  // Trigger Audio/Vibration
-                  // AudioService is singleton, already checked above
-                  await audioService.playAlarm();
-
                   // Set State
                   await prefs.setBool('is_alarm_active', true);
                   await prefs.setInt('current_alarm_id', reminder.id!);
 
+                  // Notify main isolate to play alarm and show screen
                   service.invoke('trigger_alarm', {'id': reminder.id});
                 }
               } else {
@@ -120,7 +109,6 @@ void onStart(ServiceInstance service) async {
       );
 
   service.on('stop_alarm').listen((event) async {
-    await AudioService().stopAlarm();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_alarm_active', false);
   });

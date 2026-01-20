@@ -8,6 +8,7 @@ import 'screens/add_reminder_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/alarm_screen.dart';
 import 'services/location_service.dart';
+import 'services/audio_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -39,13 +40,25 @@ class _MyAppState extends State<MyApp> {
 
   void _listenToBackgroundService() {
     // Listen for events from background service while app is in foreground/background
-    _serviceSubscription = FlutterBackgroundService()
-        .on('trigger_alarm')
-        .listen((event) {
-          if (event != null && event.containsKey('id')) {
-            _navigateToAlarmScreen(event['id'] as int);
-          }
-        });
+    _serviceSubscription = FlutterBackgroundService().on('trigger_alarm').listen((
+      event,
+    ) async {
+      if (event != null && event.containsKey('id')) {
+        // Bring app to foreground immediately
+        try {
+          const platform = MethodChannel('com.smart_alarm_manager/settings');
+          await platform.invokeMethod('bringToForeground');
+        } catch (e) {
+          print('Error bringing app to foreground: $e');
+        }
+
+        // Play alarm sound/vibration from main isolate (method channels work here)
+        await AudioService().playAlarm();
+
+        // Navigate to alarm screen
+        _navigateToAlarmScreen(event['id'] as int);
+      }
+    });
   }
 
   Future<void> _checkAlarmState() async {
