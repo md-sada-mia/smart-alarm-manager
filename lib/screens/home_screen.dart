@@ -66,48 +66,68 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkReliabilityPermissions() async {
-    // Check if we already have the permissions
-    if (await Permission.ignoreBatteryOptimizations.isGranted &&
-        await Permission.systemAlertWindow.isGranted) {
+    if (!mounted) return;
+
+    // Check permissions
+    bool batteryOptimized =
+        await Permission.ignoreBatteryOptimizations.isGranted;
+    bool overlayGranted = await Permission.systemAlertWindow.isGranted;
+
+    if (batteryOptimized && overlayGranted) {
       return;
     }
 
-    // Show guide if not mounted
-    if (!mounted) return;
-
-    showDialog(
+    // Show blocking dialog
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Optimize Experience'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('For the best alarm reliability, please enable:'),
-            SizedBox(height: 12),
-            Text(
-              '1. Ignore Battery Optimization\n   (Prevents app from being killed in background)',
-            ),
-            SizedBox(height: 8),
-            Text(
-              '2. Display Over Other Apps\n   (Allows Alarm screen to show immediately over lock screen)',
+      barrierDismissible: false, // Blocking
+      builder: (context) => PopScope(
+        canPop: false, // Prevent back button
+        child: AlertDialog(
+          title: const Text('Permission Required'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The following permissions are required for the app to function properly:',
+              ),
+              const SizedBox(height: 12),
+              if (!batteryOptimized)
+                const Text(
+                  '• Ignore Battery Optimization\n  (Required for background reliability)',
+                ),
+              if (!overlayGranted)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '• Display Over Other Apps\n  (Required for alarm screen visibility)',
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(
+                  context,
+                ); // Close dialog temporarily to allow interaction
+
+                if (!batteryOptimized) {
+                  await PermissionService().requestIgnoreBatteryOptimizations();
+                }
+
+                if (!overlayGranted) {
+                  await PermissionService().requestSystemAlertWindow();
+                }
+
+                // Re-check loops
+                _checkReliabilityPermissions();
+              },
+              child: const Text('Allow'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Later'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await PermissionService().requestIgnoreBatteryOptimizations();
-              await PermissionService().requestSystemAlertWindow();
-            },
-            child: const Text('Fix Now'),
-          ),
-        ],
       ),
     );
   }

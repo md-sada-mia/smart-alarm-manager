@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:android_intent_plus/android_intent.dart';
+// import 'package:android_intent_plus/flag.dart'; // Not needed for flags here
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionService {
@@ -31,19 +34,38 @@ class PermissionService {
   }
 
   Future<bool> requestIgnoreBatteryOptimizations() async {
-    var status = await Permission.ignoreBatteryOptimizations.status;
-    if (status.isDenied) {
-      status = await Permission.ignoreBatteryOptimizations.request();
+    if (await Permission.ignoreBatteryOptimizations.isDenied) {
+      if (Platform.isAndroid) {
+        final intent = AndroidIntent(
+          action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+          data: 'package:com.smart_alarm_manager.smart_alarm_manager',
+        );
+        await intent.launch();
+        // Wait for user to return
+        await Future.delayed(const Duration(seconds: 1));
+      } else {
+        await Permission.ignoreBatteryOptimizations.request();
+      }
     }
-    return status.isGranted;
+    return await Permission.ignoreBatteryOptimizations.isGranted;
   }
 
   Future<bool> requestSystemAlertWindow() async {
-    var status = await Permission.systemAlertWindow.status;
-    if (status.isDenied) {
-      status = await Permission.systemAlertWindow.request();
+    // Try to open specific app settings first for better UX
+    if (await Permission.systemAlertWindow.isDenied) {
+      if (Platform.isAndroid) {
+        final intent = AndroidIntent(
+          action: 'android.settings.action.MANAGE_OVERLAY_PERMISSION',
+          data: 'package:com.smart_alarm_manager.smart_alarm_manager',
+        );
+        await intent.launch();
+        // Wait for user to return
+        await Future.delayed(const Duration(seconds: 1));
+      } else {
+        await Permission.systemAlertWindow.request();
+      }
     }
-    return status.isGranted;
+    return await Permission.systemAlertWindow.isGranted;
   }
 
   Future<bool> checkPermissions() async {
