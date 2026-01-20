@@ -108,13 +108,17 @@ void onStart(ServiceInstance service) async {
               // Force launch app (requires 'Display over other apps' permission on Android 10+)
               try {
                 if (Platform.isAndroid) {
-                  const intent = AndroidIntent(
+                  final intent = AndroidIntent(
                     action: 'android.intent.action.MAIN',
                     category: 'android.intent.category.LAUNCHER',
                     package: 'com.smart_alarm_manager.smart_alarm_manager',
                     componentName:
                         'com.smart_alarm_manager.smart_alarm_manager.MainActivity',
                     flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+                    arguments: {
+                      'show_on_lock': true,
+                      'reminder_id': reminder.id,
+                    },
                   );
                   await intent.launch();
                 }
@@ -212,13 +216,14 @@ void onStart(ServiceInstance service) async {
           // Force launch app
           try {
             if (Platform.isAndroid) {
-              const intent = AndroidIntent(
+              final intent = AndroidIntent(
                 action: 'android.intent.action.MAIN',
                 category: 'android.intent.category.LAUNCHER',
                 package: 'com.smart_alarm_manager.smart_alarm_manager',
                 componentName:
                     'com.smart_alarm_manager.smart_alarm_manager.MainActivity',
                 flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+                arguments: {'show_on_lock': true, 'reminder_id': reminderId},
               );
               await intent.launch();
             }

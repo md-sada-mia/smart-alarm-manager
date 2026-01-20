@@ -24,6 +24,7 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void initState() {
     super.initState();
+    _enableLockScreenVisibility();
     // Ensure alarm plays even if opened via Full Screen Intent (where main.dart might miss the event)
     AudioService().playAlarm();
 
@@ -33,6 +34,24 @@ class _AlarmScreenState extends State<AlarmScreen>
     )..repeat();
 
     _loadReminder();
+  }
+
+  Future<void> _enableLockScreenVisibility() async {
+    try {
+      const platform = MethodChannel('com.smart_alarm_manager/settings');
+      await platform.invokeMethod('toggleLockScreenVisible', {'enable': true});
+    } catch (e) {
+      print('Error enable lock screen visibility: $e');
+    }
+  }
+
+  Future<void> _disableLockScreenVisibility() async {
+    try {
+      const platform = MethodChannel('com.smart_alarm_manager/settings');
+      await platform.invokeMethod('toggleLockScreenVisible', {'enable': false});
+    } catch (e) {
+      print('Error disabling lock screen visibility: $e');
+    }
   }
 
   Future<void> _loadReminder() async {
@@ -79,6 +98,9 @@ class _AlarmScreenState extends State<AlarmScreen>
     final service = FlutterBackgroundService();
     service.invoke('stop_alarm');
 
+    // Disable lock screen visibility
+    await _disableLockScreenVisibility();
+
     // Close screen
     if (mounted) {
       SystemNavigator.pop();
@@ -108,6 +130,9 @@ class _AlarmScreenState extends State<AlarmScreen>
     // Send signal to background service to update state
     final service = FlutterBackgroundService();
     service.invoke('stop_alarm');
+
+    // Disable lock screen visibility
+    await _disableLockScreenVisibility();
 
     // Close screen
     if (mounted) {
@@ -142,6 +167,10 @@ class _AlarmScreenState extends State<AlarmScreen>
 
       // Close screen after brief delay to show snackbar
       await Future.delayed(const Duration(milliseconds: 500));
+
+      // Disable lock screen visibility
+      await _disableLockScreenVisibility();
+
       if (mounted) {
         SystemNavigator.pop();
       }
