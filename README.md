@@ -1,16 +1,57 @@
-# smart_alarm_manager
+# Smart Alarm Manager 📍⏰
 
-A Flutter-based location reminder app with geofencing, push notifications, and alarm functionality. Set reminders for specific locations and get alerted when you enter a 500-meter radius.
+**Smart Alarm Manager** is a powerful location-based reminder application built with Flutter. It ensures you never miss a task when you arrive at a specific destination. Whether it's picking up groceries, arriving at work, or reaching a travel destination, Smart Alarm Manager wakes you up (literally!) when you get there.
 
-## Getting Started
+## 🌟 Key Features
 
-This project is a starting point for a Flutter application.
+*   **📍 Location-Based Alarms**: Triggers a full-screen alarm and notification when you enter a specific radius of a location.
+*   **🕒 Time Ranges (NEW!)**: Set optional "Active Hours" for your reminders. The alarm will only trigger if you arrive *and* the current time is within your specified range (e.g., "9:00 AM - 5:00 PM").
+*   **🧠 Smart Suggestions**: The app learns from your history! It suggests frequently used titles and locations to make adding reminders lightning fast.
+*   **🏃‍♂️ Background Tracking**: Reliable background service ensures you get notified even if the app is closed or your phone is locked.
+*   **📶 Offline Capable**: Works without an internet connection using cached maps and local database storage.
+*   **⭕ Customizable Radius**: Adjust the geofence radius (from 100m to 2km) to suit your needs.
+*   **😴 Snooze Functionality**: Not ready to deal with the reminder? Snooze the alarm for 5, 10, or 15 minutes.
+*   **🗺️ Interactive Map**: Use Google Maps to pinpoint exact locations with "My Location" support.
 
-A few resources to get you started if this is your first Flutter project:
+## 📸 Screenshots
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+| Home Screen | Add Reminder | Alarm Screen |
+|:---:|:---:|:---:|
+| *(Add screenshot here)* | *(Add screenshot here)* | *(Add screenshot here)* |
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🛠️ Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/smart_alarm_manager.git
+    ```
+2.  **Install dependencies:**
+    ```bash
+    flutter pub get
+    ```
+3.  **Setup Google Maps API:**
+    *   Get an API Key from Google Cloud Console.
+    *   Add it to `android/app/src/main/AndroidManifest.xml` and `ios/Runner/AppDelegate.swift`.
+4.  **Run the app:**
+    ```bash
+    flutter run
+    ```
+
+## 📱 Permissions
+
+The app requires the following permissions to function correctly:
+*   **Location (Always Allow)**: Essential for background tracking.
+*   **Notification**: To show alerts when you arrive.
+*   **Overlay (Display over other apps)**: To show the full-screen alarm when the phone is locked.
+*   **Exact Alarm**: To schedule timely checks.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+*Built with ❤️ using Flutter*
