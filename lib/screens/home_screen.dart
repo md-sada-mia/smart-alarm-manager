@@ -20,7 +20,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<Reminder> _reminders = [];
   Position? _currentPosition;
   bool _isLoading = true;
-  bool _showGuidelines = true; // Initially show guidelines
+  bool _showGuidelines = false; // Changed to false default
+  bool _isCheckingPermissions = true; // New state for initial check
   Timer? _timer;
   Completer<void>? _resumeCompleter;
   final PageController _pageController = PageController();
@@ -34,7 +35,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _checkInitialPermissions();
     // Refresh location every 10 seconds to update distances
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted && !_showGuidelines) _getCurrentLocation();
+      if (mounted && !_showGuidelines && !_isCheckingPermissions)
+        _getCurrentLocation();
     });
   }
 
@@ -49,12 +51,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _showGuidelines = false;
+          _isCheckingPermissions = false;
         });
         _initializeResumedApp();
       }
     } else {
-      // Stop loading spinner to show guide
-      if (mounted) setState(() => _isLoading = false);
+      // Show guide
+      if (mounted) {
+        setState(() {
+          _showGuidelines = true;
+          _isLoading = false;
+          _isCheckingPermissions = false;
+        });
+      }
     }
   }
 
@@ -404,6 +413,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingPermissions) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (_showGuidelines) {
       return _buildWelcomeGuide();
     }
@@ -421,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Smart Reminders'),
+            const Text('Smart Alarm Manager'),
           ],
         ),
         actions: [
