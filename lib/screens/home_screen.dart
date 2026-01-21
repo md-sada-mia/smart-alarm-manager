@@ -285,7 +285,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/images/logo.png', height: 32, width: 32),
+            ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                height: 32,
+                width: 32,
+                fit: BoxFit.cover,
+              ),
+            ),
             const SizedBox(width: 12),
             const Text('Smart Reminders'),
           ],
