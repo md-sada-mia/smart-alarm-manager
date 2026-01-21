@@ -5,6 +5,8 @@ import 'package:smart_alarm_manager/data/reminder_repository.dart';
 import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/utils/constants.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:smart_alarm_manager/data/database_helper.dart';
+import 'package:smart_alarm_manager/models/suggestion_history.dart';
 
 class AddReminderScreen extends StatefulWidget {
   const AddReminderScreen({super.key});
@@ -18,11 +20,16 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   final ReminderRepository _repository = ReminderRepository();
 
   // Form Fields
-  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _titleController =
+      TextEditingController(); // We keep this as master
+
+  // Suggestion State
+  List<SuggestionHistory> _locationSuggestions = [];
+
+  // ... existing controllers ...
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _latController = TextEditingController();
-  final TextEditingController _lngController =
-      TextEditingController(); // Fixed type-o
+  final TextEditingController _lngController = TextEditingController();
 
   // State
   bool _useCoordinates = false;
@@ -46,6 +53,16 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     );
     _checkConnectivity();
     _getCurrentLocation();
+    _loadSuggestions();
+  }
+
+  Future<void> _loadSuggestions() async {
+    final suggestions = await DatabaseHelper().getAllHistory();
+    if (mounted) {
+      setState(() {
+        _locationSuggestions = suggestions;
+      });
+    }
   }
 
   Future<void> _checkConnectivity() async {
@@ -260,12 +277,64 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
 
                   TextFormField(
                     controller: _titleController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Title',
-                      prefixIcon: Icon(Icons.title),
+                      prefixIcon: const Icon(Icons.title),
                       filled: true,
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: PopupMenuButton<SuggestionHistory>(
+                        icon: const Icon(Icons.history),
+                        onSelected: (SuggestionHistory selection) {
+                          setState(() {
+                            _titleController.text = selection.title;
+                            _selectedLocation = LatLng(
+                              selection.latitude,
+                              selection.longitude,
+                            );
+                            _updateCoordControllers();
+                          });
+                          _mapController?.animateCamera(
+                            CameraUpdate.newLatLng(_selectedLocation),
+                          );
+                        },
+                        itemBuilder: (BuildContext context) {
+                          return _locationSuggestions.map((
+                            SuggestionHistory choice,
+                          ) {
+                            return PopupMenuItem<SuggestionHistory>(
+                              value: choice,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.location_on, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          choice.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Used ${choice.usageCount} times',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList();
+                        },
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -291,7 +360,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
             ),
           ),
 
-          // 2. Middle Section: Map (Expanded)
+          // 4. Middle Section: Map (Expanded)
           Expanded(
             child: Stack(
               children: [
