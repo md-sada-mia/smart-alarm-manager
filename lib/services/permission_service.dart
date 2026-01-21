@@ -38,7 +38,6 @@ class PermissionService {
       await Permission.ignoreBatteryOptimizations.request();
     }
     return await Permission.ignoreBatteryOptimizations.isGranted;
-    return await Permission.ignoreBatteryOptimizations.isGranted;
   }
 
   Future<bool> requestSystemAlertWindow() async {

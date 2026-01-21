@@ -6,6 +6,7 @@ import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/services/permission_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_alarm_manager/services/location_service.dart';
+import 'package:smart_alarm_manager/widgets/permission_guide_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,21 +20,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<Reminder> _reminders = [];
   Position? _currentPosition;
   bool _isLoading = true;
+  bool _showGuidelines = true; // Initially show guidelines
   Timer? _timer;
   Completer<void>? _resumeCompleter;
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
 
-  @required
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPermissionsAndLoad();
-    });
+    // Remove auto-trigger. User must tap "Start App" to begin permission flow.
+    _checkInitialPermissions();
     // Refresh location every 10 seconds to update distances
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted) _getCurrentLocation();
+      if (mounted && !_showGuidelines) _getCurrentLocation();
     });
+  }
+
+  Future<void> _checkInitialPermissions() async {
+    // If permissions already granted, skip guidelines
+    final hasPerms = await PermissionService().checkPermissions();
+    final batteryOptimized =
+        await Permission.ignoreBatteryOptimizations.isGranted;
+    final overlayGranted = await Permission.systemAlertWindow.isGranted;
+
+    if (hasPerms && batteryOptimized && overlayGranted) {
+      if (mounted) {
+        setState(() {
+          _showGuidelines = false;
+        });
+        _initializeResumedApp();
+      }
+    } else {
+      // Stop loading spinner to show guide
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -41,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _resumeCompleter?.complete(); // Clean up
     _timer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -59,22 +82,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _resumeCompleter!.future;
   }
 
-  Future<void> _checkPermissionsAndLoad() async {
+  Future<void> _startPermissionFlow() async {
+    // 1. Location & Notifications
     final hasPerms = await PermissionService().checkPermissions();
     if (!hasPerms) {
       await PermissionService().requestLocationPermissions();
       await PermissionService().requestNotificationPermissions();
-
-      // Initial standard checks
     }
 
-    // Now start blocking check for reliability
-    // This MUST happen before we fully initialize logic that depends on it
+    // 2. Reliability (Battery & Overlay)
     await _checkReliabilityPermissions();
 
+    // 3. Initialize App
+    if (mounted) {
+      setState(() => _showGuidelines = false);
+      await _initializeResumedApp();
+    }
+  }
+
+  Future<void> _initializeResumedApp() async {
     // Permissions granted (or passed blocking check), now we can safely start the service
     await LocationService().initialize();
-
     _loadReminders();
     _getCurrentLocation();
   }
@@ -90,75 +118,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     while (!batteryOptimized || !overlayGranted) {
       if (!mounted) return;
 
-      // Show dialog explaining requirements
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: const Text('Permission Required'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Please allow the following permissions to ensure alarms work reliably:',
-                ),
-                const SizedBox(height: 12),
-                if (!batteryOptimized)
-                  const ListTile(
-                    leading: Icon(Icons.battery_alert, color: Colors.orange),
-                    title: Text('Ignore Battery Optimization'),
-                    subtitle: Text('Prevents app from sleeping in background'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                if (!overlayGranted)
-                  const ListTile(
-                    leading: Icon(Icons.layers, color: Colors.blue),
-                    title: Text('Display Over Other Apps'),
-                    subtitle: Text(
-                      'Required to show alarm screen from background',
-                    ),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-              ],
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Continue'),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      // 1. Handle Battery Optimization (In-app dialog usually)
+      // 1. Handle Battery Optimization
       if (!batteryOptimized) {
         await PermissionService().requestIgnoreBatteryOptimizations();
-        // Short delay to allow status update
         await Future.delayed(const Duration(milliseconds: 500));
         batteryOptimized =
             await Permission.ignoreBatteryOptimizations.isGranted;
       }
 
-      // 2. Handle Overlay (Settings Screen)
-      // Only proceed if battery involved interaction didn't crash us or we are ready
+      // 2. Handle Overlay
       if (!overlayGranted) {
-        // If we just handled battery, user might be fatigued, but we must persist
         await PermissionService().requestSystemAlertWindow();
-        // For Overlay, we definitely need to wait for resume as it goes to Settings
         await _waitForResume();
-
-        // Wait extra time for system to propagate verification logic
         await Future.delayed(const Duration(seconds: 1));
         overlayGranted = await Permission.systemAlertWindow.isGranted;
       }
 
-      // Loop continues if either is still false
+      // If user cancels, we break loop or show small alert?
+      // To strictly enforce, we loop. To be gentle, we check once more.
+      if (!batteryOptimized || !overlayGranted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Permissions Missing"),
+            content: const Text(
+              "These permissions are required. Please try again.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Retry"),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -284,8 +279,135 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Widget _buildWelcomeGuide() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                "Setup Guide",
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (int page) {
+                  setState(() => _currentPage = page);
+                },
+                children: [
+                  _VerticalSwipeDetector(
+                    onSwipeUp: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: const PermissionGuideCard(
+                      title: "Required Location Permission",
+                      description:
+                          "Select 'Allow all the time' to enable background tracking.",
+                      icon: Icons.location_on,
+                      iconColor: Colors.red,
+                      imagePath:
+                          'assets/images/location-allow-all-the-time.png',
+                    ),
+                  ),
+                  _VerticalSwipeDetector(
+                    onSwipeUp: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    onSwipeDown: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: const PermissionGuideCard(
+                      title: "Find App in List",
+                      description:
+                          "Locate 'Smart Alarm Manager' in the 'Display over other apps' list.",
+                      icon: Icons.list_alt,
+                      iconColor: Colors.purple,
+                      imagePath: 'assets/images/over-the-app-list.png',
+                    ),
+                  ),
+                  _VerticalSwipeDetector(
+                    onSwipeDown: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: const PermissionGuideCard(
+                      title: "Enable Display Overlay",
+                      description:
+                          "Toggle the switch to ON to allow alarm screen to appear.",
+                      icon: Icons.toggle_on,
+                      iconColor: Colors.green,
+                      imagePath: 'assets/images/over-the-app-switch.png',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                3,
+                (index) => Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentPage == index
+                        ? Colors.blue
+                        : Colors.grey.shade300,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: _startPermissionFlow,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text("Start App & Grant Permissions"),
+                  style: FilledButton.styleFrom(
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showGuidelines) {
+      return _buildWelcomeGuide();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -537,6 +659,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _VerticalSwipeDetector extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onSwipeUp;
+  final VoidCallback? onSwipeDown;
+
+  const _VerticalSwipeDetector({
+    required this.child,
+    this.onSwipeUp,
+    this.onSwipeDown,
+  });
+
+  @override
+  State<_VerticalSwipeDetector> createState() => _VerticalSwipeDetectorState();
+}
+
+class _VerticalSwipeDetectorState extends State<_VerticalSwipeDetector> {
+  double _dragDistance = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragStart: (details) {
+        _dragDistance = 0.0;
+      },
+      onVerticalDragUpdate: (details) {
+        _dragDistance += details.delta.dy;
+      },
+      onVerticalDragEnd: (details) {
+        // Trigger if swiped far enough (50 logical pixels) OR flung fast enough
+        const double distanceThreshold = 50.0;
+        const double velocityThreshold = 300.0;
+
+        if (_dragDistance < -distanceThreshold ||
+            details.primaryVelocity! < -velocityThreshold) {
+          widget.onSwipeUp?.call();
+        } else if (_dragDistance > distanceThreshold ||
+            details.primaryVelocity! > velocityThreshold) {
+          widget.onSwipeDown?.call();
+        }
+      },
+      child: widget.child,
     );
   }
 }
