@@ -35,18 +35,9 @@ class PermissionService {
 
   Future<bool> requestIgnoreBatteryOptimizations() async {
     if (await Permission.ignoreBatteryOptimizations.isDenied) {
-      if (Platform.isAndroid) {
-        final intent = AndroidIntent(
-          action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-          data: 'package:com.smart_alarm_manager.smart_alarm_manager',
-        );
-        await intent.launch();
-        // Wait for user to return
-        await Future.delayed(const Duration(seconds: 1));
-      } else {
-        await Permission.ignoreBatteryOptimizations.request();
-      }
+      await Permission.ignoreBatteryOptimizations.request();
     }
+    return await Permission.ignoreBatteryOptimizations.isGranted;
     return await Permission.ignoreBatteryOptimizations.isGranted;
   }
 

@@ -54,6 +54,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _waitForResume() async {
     _resumeCompleter = Completer<void>();
+    // Wait for resume - no timeout for Settings interactions
+    // If user never returns, the app staying in background is fine.
     await _resumeCompleter!.future;
   }
 
@@ -80,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _checkReliabilityPermissions() async {
     if (!mounted) return;
 
-    // Check permissions
+    // Check permissions initially
     bool batteryOptimized =
         await Permission.ignoreBatteryOptimizations.isGranted;
     bool overlayGranted = await Permission.systemAlertWindow.isGranted;
@@ -88,11 +90,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     while (!batteryOptimized || !overlayGranted) {
       if (!mounted) return;
 
+      // Show dialog explaining requirements
       await showDialog(
         context: context,
-        barrierDismissible: false, // Blocking
+        barrierDismissible: false,
         builder: (context) => PopScope(
-          canPop: false, // Prevent back button
+          canPop: false,
           child: AlertDialog(
             title: const Text('Permission Required'),
             content: Column(
@@ -100,60 +103,62 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'The following permissions are required for the app to function properly:',
+                  'Please allow the following permissions to ensure alarms work reliably:',
                 ),
                 const SizedBox(height: 12),
                 if (!batteryOptimized)
-                  const Text(
-                    '• Ignore Battery Optimization\n  (Required for background reliability)',
+                  const ListTile(
+                    leading: Icon(Icons.battery_alert, color: Colors.orange),
+                    title: Text('Ignore Battery Optimization'),
+                    subtitle: Text('Prevents app from sleeping in background'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 if (!overlayGranted)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      '• Display Over Other Apps\n  (Find "Smart Alarm Manager" in the list and enable it)',
+                  const ListTile(
+                    leading: Icon(Icons.layers, color: Colors.blue),
+                    title: Text('Display Over Other Apps'),
+                    subtitle: Text(
+                      'Required to show alarm screen from background',
                     ),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
               ],
             ),
             actions: [
               FilledButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog to proceed to requests
-                },
-                child: const Text('Allow'),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Continue'),
               ),
             ],
           ),
         ),
       );
 
-      // Dialog closed, request permissions and WAIT for user to come back
+      // 1. Handle Battery Optimization (In-app dialog usually)
       if (!batteryOptimized) {
-        // Only request if still needed
         await PermissionService().requestIgnoreBatteryOptimizations();
-        // Wait for app to resume (user returning from settings)
-        await _waitForResume();
-        // Update status
+        // Short delay to allow status update
+        await Future.delayed(const Duration(milliseconds: 500));
         batteryOptimized =
             await Permission.ignoreBatteryOptimizations.isGranted;
       }
 
-      // Check again before next request
+      // 2. Handle Overlay (Settings Screen)
+      // Only proceed if battery involved interaction didn't crash us or we are ready
       if (!overlayGranted) {
+        // If we just handled battery, user might be fatigued, but we must persist
         await PermissionService().requestSystemAlertWindow();
-        // Wait for app to resume
+        // For Overlay, we definitely need to wait for resume as it goes to Settings
         await _waitForResume();
-        // Update status
+
+        // Wait extra time for system to propagate verification logic
+        await Future.delayed(const Duration(seconds: 1));
         overlayGranted = await Permission.systemAlertWindow.isGranted;
       }
 
-      // Slight delay to ensure permission status is propagated
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Re-read both just in case
-      batteryOptimized = await Permission.ignoreBatteryOptimizations.isGranted;
-      overlayGranted = await Permission.systemAlertWindow.isGranted;
+      // Loop continues if either is still false
     }
   }
 
