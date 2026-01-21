@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart'; // For PlayerState
+import 'package:url_launcher/url_launcher.dart';
 import 'package:smart_alarm_manager/services/audio_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -197,6 +198,118 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'Developer Profile',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2,
+                                ),
+                                image: const DecorationImage(
+                                  image: AssetImage(
+                                    'assets/images/developer.png',
+                                  ),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mehedi Hasan Mondol',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'AI IDE Specialist Windsurf / Antigravity &.. | Web App & Android Dev.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 32),
+                        _buildContactItem(
+                          Icons.email_outlined,
+                          'mehedihasanmondol.online@gmail.com',
+                          'mailto:mehedihasanmondol.online@gmail.com',
+                        ),
+                        _buildContactItem(
+                          Icons.phone_android_outlined,
+                          '01912336505',
+                          'tel:01912336505',
+                        ),
+                        _buildContactItem(
+                          Icons.language_outlined,
+                          'websitelimited.com',
+                          'https://websitelimited.com',
+                        ),
+                        _buildContactItem(
+                          Icons.facebook_outlined,
+                          'facebook.com/Md.Sada.Mia.bd',
+                          'https://www.facebook.com/Md.Sada.Mia.bd',
+                        ),
+                        const SizedBox(height: 8),
+                        const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 20,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'South Bagoan, Bagoan, Mothurapur, Doulotpur, Kushtia post code:7052',
+                                style: TextStyle(fontSize: 13, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(),
                 const ListTile(
                   title: Text('About'),
                   subtitle: Text('Smart Alarm Manager v1.2.0'),
@@ -305,6 +418,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await audioService.stopPreview();
     } else {
       await audioService.playSoundPreview(path);
+    }
+  }
+
+  Widget _buildContactItem(IconData icon, String text, String url) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: InkWell(
+        onTap: () => _launchUrl(url),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Could not launch $url : $e');
     }
   }
 }
