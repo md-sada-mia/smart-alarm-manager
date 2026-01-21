@@ -43,6 +43,8 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   late CameraPosition _initialCameraPosition;
   GoogleMapController? _mapController;
   bool _isEditing = false;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
 
   @override
   void initState() {
@@ -59,6 +61,22 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         widget.reminder!.longitude,
       );
       _radius = widget.reminder!.radius;
+
+      // Parse Time Range
+      if (widget.reminder!.startTime != null &&
+          widget.reminder!.endTime != null) {
+        final startParts = widget.reminder!.startTime!.split(':');
+        final endParts = widget.reminder!.endTime!.split(':');
+        _startTime = TimeOfDay(
+          hour: int.parse(startParts[0]),
+          minute: int.parse(startParts[1]),
+        );
+        _endTime = TimeOfDay(
+          hour: int.parse(endParts[0]),
+          minute: int.parse(endParts[1]),
+        );
+      }
+
       _updateCoordControllers();
     } else {
       _getCurrentLocation();
@@ -147,6 +165,34 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     }
   }
 
+  Future<void> _pickTimeRange() async {
+    final TimeOfDay? start = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? const TimeOfDay(hour: 9, minute: 0),
+      helpText: "Select Start Time",
+    );
+    if (start != null) {
+      if (!mounted) return;
+      final TimeOfDay? end = await showTimePicker(
+        context: context,
+        initialTime: _endTime ?? const TimeOfDay(hour: 17, minute: 0),
+        helpText: "Select End Time",
+      );
+      if (end != null) {
+        setState(() {
+          _startTime = start;
+          _endTime = end;
+        });
+      }
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return "$hour:$minute";
+  }
+
   Future<void> _saveReminder() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -161,6 +207,8 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         createdAt: widget.reminder?.createdAt ?? DateTime.now(),
         isActive: widget.reminder?.isActive ?? true,
         status: widget.reminder?.status ?? ReminderStatus.active,
+        startTime: _startTime != null ? _formatTimeOfDay(_startTime!) : null,
+        endTime: _endTime != null ? _formatTimeOfDay(_endTime!) : null,
       );
 
       if (_isEditing) {
@@ -379,6 +427,50 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          // Time Range Picker (Compact)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.access_time, size: 20, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _startTime != null && _endTime != null
+                        ? "Active: ${_startTime!.format(context)} - ${_endTime!.format(context)}"
+                        : "Active: Always",
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+                if (_startTime != null)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _startTime = null;
+                        _endTime = null;
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: "Clear Time",
+                  ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: _pickTimeRange,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 32),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.1),
+                  ),
+                  child: Text(_startTime == null ? "Set Time" : "Change"),
+                ),
+              ],
             ),
           ),
 

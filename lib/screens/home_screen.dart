@@ -207,11 +207,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadReminders();
   }
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) {
-      return "${meters.toInt()} m";
+  String _formatDistance(double? distance) {
+    if (distance == null) return "Unknown";
+    if (distance < 1000) {
+      return "${distance.toInt()}m";
     } else {
-      return "${(meters / 1000).toStringAsFixed(1)} km";
+      return "${(distance / 1000).toStringAsFixed(1)}km";
+    }
+  }
+
+  String _formatTime(BuildContext context, String timeStr) {
+    try {
+      final parts = timeStr.split(':');
+      final time = TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      );
+      return time.format(context);
+    } catch (e) {
+      return timeStr;
     }
   }
 
@@ -612,6 +626,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             ),
                                           ],
                                         ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                    if (reminder.startTime != null &&
+                                        reminder.endTime != null) ...[
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "${_formatTime(context, reminder.startTime!)} - ${_formatTime(context, reminder.endTime!)}",
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                          ),
+                                        ],
                                       ),
                                       const SizedBox(height: 4),
                                     ],

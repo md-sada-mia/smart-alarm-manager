@@ -68,6 +68,42 @@ void onStart(ServiceInstance service) async {
             continue; // Don't trigger while snoozed
           }
 
+          // Check Time Range (if set)
+          bool timeConditionMet = true;
+          if (reminder.startTime != null && reminder.endTime != null) {
+            final now = DateTime.now();
+            final nowMinutes = now.hour * 60 + now.minute;
+
+            try {
+              final startParts = reminder.startTime!.split(':');
+              final endParts = reminder.endTime!.split(':');
+
+              final startMinutes =
+                  int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+              final endMinutes =
+                  int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+
+              if (startMinutes < endMinutes) {
+                // Normal range (e.g., 09:00 to 17:00)
+                timeConditionMet =
+                    nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+              } else {
+                // Spanning midnight (e.g., 22:00 to 06:00)
+                timeConditionMet =
+                    nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+              }
+            } catch (e) {
+              print("Error parsing time range for reminder ${reminder.id}: $e");
+              // If parsing fails, default to true (trigger) or false?
+              // Safer to ignore time condition (trigger) so user doesn't miss alarm,
+              // or false to avoid broken alarm?
+              // defaulting to true (ignore time restriction) seems safer for an alarm app.
+              timeConditionMet = true;
+            }
+          }
+
+          if (!timeConditionMet) continue;
+
           double distance = Geolocator.distanceBetween(
             position.latitude,
             position.longitude,

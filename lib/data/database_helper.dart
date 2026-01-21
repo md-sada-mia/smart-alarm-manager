@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'smart_alarm_manager.db');
     return await openDatabase(
       path,
-      version: 3, // Incremented version for suggestion_history
+      version: 4, // Incremented version for startTime/endTime
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -39,7 +39,9 @@ class DatabaseHelper {
         isActive INTEGER,
         status TEXT DEFAULT 'active',
         snoozeUntil TEXT,
-        createdAt TEXT
+        createdAt TEXT,
+        startTime TEXT,
+        endTime TEXT
       )
     ''');
 
@@ -73,6 +75,10 @@ class DatabaseHelper {
           lastUsedAt TEXT
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE reminders ADD COLUMN startTime TEXT');
+      await db.execute('ALTER TABLE reminders ADD COLUMN endTime TEXT');
     }
   }
 

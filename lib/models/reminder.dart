@@ -12,6 +12,8 @@ class Reminder {
   final ReminderStatus status;
   final DateTime? snoozeUntil; // When snoozed alarm will re-trigger
   final DateTime createdAt;
+  final String? startTime; // "HH:mm" 24-hour format
+  final String? endTime; // "HH:mm" 24-hour format
 
   Reminder({
     this.id,
@@ -24,6 +26,8 @@ class Reminder {
     this.status = ReminderStatus.active,
     this.snoozeUntil,
     required this.createdAt,
+    this.startTime,
+    this.endTime,
   });
 
   Map<String, dynamic> toMap() {
@@ -38,6 +42,8 @@ class Reminder {
       'status': status.name, // Store as string: 'active', 'snoozed', etc.
       'snoozeUntil': snoozeUntil?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
+      'startTime': startTime,
+      'endTime': endTime,
     };
   }
 
@@ -68,6 +74,8 @@ class Reminder {
           ? DateTime.parse(map['snoozeUntil'])
           : null,
       createdAt: DateTime.parse(map['createdAt']),
+      startTime: map['startTime'],
+      endTime: map['endTime'],
     );
   }
 
@@ -83,6 +91,9 @@ class Reminder {
     DateTime? snoozeUntil,
     bool clearSnooze = false, // Flag to clear snooze
     DateTime? createdAt,
+    String? startTime,
+    String? endTime,
+    bool clearTimeRange = false,
   }) {
     return Reminder(
       id: id ?? this.id,
@@ -95,6 +106,8 @@ class Reminder {
       status: status ?? this.status,
       snoozeUntil: clearSnooze ? null : (snoozeUntil ?? this.snoozeUntil),
       createdAt: createdAt ?? this.createdAt,
+      startTime: clearTimeRange ? null : (startTime ?? this.startTime),
+      endTime: clearTimeRange ? null : (endTime ?? this.endTime),
     );
   }
 }
