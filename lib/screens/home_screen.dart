@@ -523,10 +523,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                         title: Row(
                           children: [
-                            Text(
-                              reminder.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                reminder.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -658,6 +660,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           onChanged: (val) => _toggleActive(reminder),
                         ),
                         isThreeLine: true,
+                        onTap: () async {
+                          await Navigator.pushNamed(
+                            context,
+                            '/add',
+                            arguments: reminder,
+                          );
+                          _loadReminders();
+                        },
                       ),
                     ),
                   );

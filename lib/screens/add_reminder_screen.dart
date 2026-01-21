@@ -9,7 +9,8 @@ import 'package:smart_alarm_manager/data/database_helper.dart';
 import 'package:smart_alarm_manager/models/suggestion_history.dart';
 
 class AddReminderScreen extends StatefulWidget {
-  const AddReminderScreen({super.key});
+  final Reminder? reminder;
+  const AddReminderScreen({super.key, this.reminder});
 
   @override
   State<AddReminderScreen> createState() => _AddReminderScreenState();
@@ -20,8 +21,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   final ReminderRepository _repository = ReminderRepository();
 
   // Form Fields
-  final TextEditingController _titleController =
-      TextEditingController(); // We keep this as master
+  final TextEditingController _titleController = TextEditingController();
 
   // Suggestion State
   List<SuggestionHistory> _locationSuggestions = [];
@@ -42,18 +42,32 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   bool _isOffline = false;
   late CameraPosition _initialCameraPosition;
   GoogleMapController? _mapController;
+  bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize with default immediately for instant load
+    _checkConnectivity();
+    _loadSuggestions();
+
+    if (widget.reminder != null) {
+      _isEditing = true;
+      _titleController.text = widget.reminder!.title;
+      _descController.text = widget.reminder!.description;
+      _selectedLocation = LatLng(
+        widget.reminder!.latitude,
+        widget.reminder!.longitude,
+      );
+      _radius = widget.reminder!.radius;
+      _updateCoordControllers();
+    } else {
+      _getCurrentLocation();
+    }
+
     _initialCameraPosition = CameraPosition(
       target: _selectedLocation,
       zoom: 15,
     );
-    _checkConnectivity();
-    _getCurrentLocation();
-    _loadSuggestions();
   }
 
   Future<void> _loadSuggestions() async {
@@ -96,14 +110,15 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         // We don't change _initialCameraPosition after init, we move controller
         _updateCoordControllers();
       });
+      if (_mapController != null) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLng(_selectedLocation),
+        );
+      }
     } catch (e) {
       // Fallback or request permission
       print("Location error: $e");
       // Keep default location
-    }
-
-    if (_mapController != null) {
-      _mapController!.animateCamera(CameraUpdate.newLatLng(_selectedLocation));
     }
   }
 
@@ -137,15 +152,22 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       setState(() => _isLoading = true);
 
       final reminder = Reminder(
+        id: widget.reminder?.id, // Preserve ID if editing
         title: _titleController.text,
         description: _descController.text,
         latitude: _selectedLocation.latitude,
         longitude: _selectedLocation.longitude,
         radius: _radius,
-        createdAt: DateTime.now(),
+        createdAt: widget.reminder?.createdAt ?? DateTime.now(),
+        isActive: widget.reminder?.isActive ?? true,
+        status: widget.reminder?.status ?? ReminderStatus.active,
       );
 
-      await _repository.addReminder(reminder);
+      if (_isEditing) {
+        await _repository.updateReminder(reminder);
+      } else {
+        await _repository.addReminder(reminder);
+      }
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -202,7 +224,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Reminder'),
+        title: Text(_isEditing ? 'Edit Reminder' : 'New Reminder'),
         actions: [
           IconButton(icon: const Icon(Icons.check), onPressed: _saveReminder),
         ],

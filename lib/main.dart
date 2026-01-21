@@ -10,6 +10,7 @@ import 'screens/alarm_screen.dart';
 import 'services/location_service.dart';
 import 'services/audio_service.dart';
 import 'services/permission_service.dart';
+import 'models/reminder.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -131,13 +132,26 @@ class _MyAppState extends State<MyApp> {
           return MaterialPageRoute(
             builder: (context) => AlarmScreen(reminderId: id),
           );
+        } else if (settings.name == '/add') {
+          final reminder =
+              settings.arguments
+                  as Reminder?; // Import Reminder if needed, or assume dynamic
+          // Actually we better import reminder.dart in main.dart if not already?
+          // It is likely not imported. We might need to check imports.
+          // But main.dart does not import Reminder model explicitly.
+          // Wait, add_reminder_screen might expect it.
+          // Let's rely on dynamic for now or import it.
+          // Let's assume dynamic cast works or import.
+
+          return MaterialPageRoute(
+            builder: (context) => AddReminderScreen(reminder: reminder),
+          );
         }
-        return null; // Let main routes checking below handle it? No, routes map takes precedence?
-        // Mix of onGenerateRoute and routes can be tricky. Let's use routes for static and onGenerate for dynamic.
+        return null;
       },
       routes: {
         '/': (context) => const HomeScreen(),
-        '/add': (context) => const AddReminderScreen(),
+        // '/add': handled in onGenerateRoute
         '/settings': (context) => const SettingsScreen(),
         // '/alarm' handled in onGenerateRoute for arguments
       },
