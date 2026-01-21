@@ -302,6 +302,13 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                   initialCameraPosition: _initialCameraPosition,
                   onMapCreated: (controller) => _mapController = controller,
                   onCameraMove: _onMapCameraMove,
+                  onTap: (LatLng pos) {
+                    setState(() {
+                      _selectedLocation = pos;
+                      _updateCoordControllers();
+                    });
+                    _mapController?.animateCamera(CameraUpdate.newLatLng(pos));
+                  },
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false, // We use custom FAB
                   zoomControlsEnabled: false, // We use custom buttons
