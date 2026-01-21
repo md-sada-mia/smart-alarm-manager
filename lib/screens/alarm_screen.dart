@@ -229,10 +229,14 @@ class _AlarmScreenState extends State<AlarmScreen>
                     shape: BoxShape.circle,
                     color: Colors.red,
                   ),
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.white,
-                    size: 50,
+                  child: ClipOval(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ],

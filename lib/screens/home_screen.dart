@@ -283,7 +283,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Reminders'),
+        title: Row(
+          children: [
+            Image.asset('assets/images/logo.png', height: 32, width: 32),
+            const SizedBox(width: 12),
+            const Text('Smart Reminders'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
