@@ -1,0 +1,17 @@
+# Mark this as a Dart project
+*.dart linguist-language=Dart
+*.dart linguist-detectable=true
+
+# Exclude auto-generated and vendor files from language statistics
+build/** linguist-generated=true
+web/** linguist-vendored=true
+*.g.dart linguist-generated=true
+*.freezed.dart linguist-generated=true
+*.config.dart linguist-generated=true
+
+# Android/iOS platform files
+android/** linguist-vendored=true
+ios/** linguist-vendored=true
+
+# Exclude documentation from statistics
+*.md linguist-documentation=true
