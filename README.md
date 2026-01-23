@@ -5,7 +5,8 @@
 ## 🌟 Key Features
 
 *   **📍 Location-Based Alarms**: Triggers a full-screen alarm and notification when you enter a specific radius of a location.
-*   **🕒 Time Ranges (NEW!)**: Set optional "Active Hours" for your reminders. The alarm will only trigger if you arrive *and* the current time is within your specified range (e.g., "9:00 AM - 5:00 PM").
+*   **🕒 Time Ranges**: Set optional "Active Hours" for your reminders. The alarm will only trigger if you arrive *and* the current time is within your specified range (e.g., "9:00 AM - 5:00 PM").
+*   **📅 Day-wise Scheduling (NEW!)**: Choose specific days of the week for your reminders to be active (e.g., "Weekdays", "Weekends", or "Every Mon, Wed, Fri").
 *   **🧠 Smart Suggestions**: The app learns from your history! It suggests frequently used titles and locations to make adding reminders lightning fast.
 *   **🏃‍♂️ Background Tracking**: Reliable background service ensures you get notified even if the app is closed or your phone is locked.
 *   **📶 Offline Capable**: Works without an internet connection using cached maps and local database storage.

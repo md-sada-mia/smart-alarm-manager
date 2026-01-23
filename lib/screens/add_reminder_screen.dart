@@ -45,6 +45,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   bool _isEditing = false;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7]; // Default: Every day
 
   @override
   void initState() {
@@ -75,6 +76,10 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
           hour: int.parse(endParts[0]),
           minute: int.parse(endParts[1]),
         );
+      }
+
+      if (widget.reminder!.days != null && widget.reminder!.days!.isNotEmpty) {
+        _selectedDays = List.from(widget.reminder!.days!);
       }
 
       _updateCoordControllers();
@@ -209,6 +214,9 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         status: widget.reminder?.status ?? ReminderStatus.active,
         startTime: _startTime != null ? _formatTimeOfDay(_startTime!) : null,
         endTime: _endTime != null ? _formatTimeOfDay(_endTime!) : null,
+        days: _selectedDays.length == 7
+            ? null
+            : _selectedDays, // Null if all days selected
       );
 
       if (_isEditing) {
@@ -230,6 +238,96 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
 
   void _zoomOut() {
     _mapController?.animateCamera(CameraUpdate.zoomOut());
+  }
+
+  String _getDaysSummary() {
+    if (_selectedDays.length == 7) return "Every Day";
+    if (_selectedDays.isEmpty) return "Never";
+    if (_selectedDays.length == 2 &&
+        _selectedDays.contains(6) &&
+        _selectedDays.contains(7)) {
+      return "Weekends";
+    }
+    if (_selectedDays.length == 5 &&
+        ![6, 7].any((d) => _selectedDays.contains(d))) {
+      return "Weekdays";
+    }
+
+    // Sort days
+    final List<int> sorted = List.from(_selectedDays)..sort();
+    final List<String> shortNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    return sorted.map((d) => shortNames[d - 1]).join(", ");
+  }
+
+  Future<void> _showDayPickerDialog() async {
+    // Temp state for the dialog
+    List<int> tempSelectedDays = List.from(_selectedDays);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Repeat Days"),
+              content: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: List.generate(7, (index) {
+                  final dayIndex = index + 1;
+                  final fullNames = [
+                    'Monday',
+                    'Tuesday',
+                    'Wednesday',
+                    'Thursday',
+                    'Friday',
+                    'Saturday',
+                    'Sunday',
+                  ];
+                  final isSelected = tempSelectedDays.contains(dayIndex);
+                  return FilterChip(
+                    label: Text(fullNames[index]),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setDialogState(() {
+                        if (selected) {
+                          tempSelectedDays.add(dayIndex);
+                          tempSelectedDays.sort();
+                        } else {
+                          if (tempSelectedDays.length > 1) {
+                            tempSelectedDays.remove(dayIndex);
+                          } else {
+                            // Don't allow empty generic selection inside dialog just yet,
+                            // or show toast.
+                          }
+                        }
+                      });
+                    },
+                  );
+                }),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedDays = tempSelectedDays;
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildMapControl({
@@ -430,45 +528,102 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
             ),
           ),
 
-          // Time Range Picker (Compact)
+          // Combined Compact Row for Time & Repeat
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                const Icon(Icons.access_time, size: 20, color: Colors.grey),
-                const SizedBox(width: 8),
+                // Time Section
                 Expanded(
-                  child: Text(
-                    _startTime != null && _endTime != null
-                        ? "Active: ${_startTime!.format(context)} - ${_endTime!.format(context)}"
-                        : "Active: Always",
-                    style: const TextStyle(fontSize: 14),
+                  child: InkWell(
+                    onTap: _pickTimeRange,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.access_time,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Time",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _startTime != null && _endTime != null
+                                ? "${_startTime!.format(context)} - ${_endTime!.format(context)}"
+                                : "Always Active",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                if (_startTime != null)
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () {
-                      setState(() {
-                        _startTime = null;
-                        _endTime = null;
-                      });
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: "Clear Time",
+
+                // Vertical Divider
+                Container(
+                  height: 32,
+                  width: 1,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+
+                // Repeat Section
+                Expanded(
+                  child: InkWell(
+                    onTap: _showDayPickerDialog,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.repeat, size: 16, color: Colors.grey),
+                              SizedBox(width: 4),
+                              Text(
+                                "Repeat",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getDaysSummary(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: _pickTimeRange,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    minimumSize: const Size(0, 32),
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.1),
-                  ),
-                  child: Text(_startTime == null ? "Set Time" : "Change"),
                 ),
               ],
             ),

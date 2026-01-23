@@ -629,6 +629,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       ),
                                       const SizedBox(height: 4),
                                     ],
+                                    // Days Info
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_today,
+                                          size: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          reminder.daysSummary,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
                                     if (reminder.startTime != null &&
                                         reminder.endTime != null) ...[
                                       Row(

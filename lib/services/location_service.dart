@@ -68,6 +68,14 @@ void onStart(ServiceInstance service) async {
             continue; // Don't trigger while snoozed
           }
 
+          // Check Days (if set)
+          if (reminder.days != null && reminder.days!.isNotEmpty) {
+            final now = DateTime.now();
+            if (!reminder.days!.contains(now.weekday)) {
+              continue; // Skip if today is not in selected days
+            }
+          }
+
           // Check Time Range (if set)
           bool timeConditionMet = true;
           if (reminder.startTime != null && reminder.endTime != null) {

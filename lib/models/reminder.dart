@@ -14,6 +14,8 @@ class Reminder {
   final DateTime createdAt;
   final String? startTime; // "HH:mm" 24-hour format
   final String? endTime; // "HH:mm" 24-hour format
+  final List<int>?
+  days; // List of weekdays (1=Mon, 7=Sun). Null/Empty = Every day
 
   Reminder({
     this.id,
@@ -28,6 +30,7 @@ class Reminder {
     required this.createdAt,
     this.startTime,
     this.endTime,
+    this.days,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +47,7 @@ class Reminder {
       'createdAt': createdAt.toIso8601String(),
       'startTime': startTime,
       'endTime': endTime,
+      'days': days?.join(','), // Store as comma-separated string "1,2,3"
     };
   }
 
@@ -76,6 +80,9 @@ class Reminder {
       createdAt: DateTime.parse(map['createdAt']),
       startTime: map['startTime'],
       endTime: map['endTime'],
+      days: map['days'] != null && (map['days'] as String).isNotEmpty
+          ? (map['days'] as String).split(',').map((e) => int.parse(e)).toList()
+          : null,
     );
   }
 
@@ -94,6 +101,7 @@ class Reminder {
     String? startTime,
     String? endTime,
     bool clearTimeRange = false,
+    List<int>? days,
   }) {
     return Reminder(
       id: id ?? this.id,
@@ -108,6 +116,32 @@ class Reminder {
       createdAt: createdAt ?? this.createdAt,
       startTime: clearTimeRange ? null : (startTime ?? this.startTime),
       endTime: clearTimeRange ? null : (endTime ?? this.endTime),
+      days: days ?? this.days,
     );
+  }
+
+  String get daysSummary {
+    if (days == null || days!.isEmpty || days!.length == 7) return "Every Day";
+
+    // Sort days
+    final List<int> sorted = List.from(days!)..sort();
+
+    if (days!.length == 2 && days!.contains(6) && days!.contains(7)) {
+      return "Weekends";
+    }
+    if (days!.length == 5 && ![6, 7].any((d) => days!.contains(d))) {
+      return "Weekdays";
+    }
+
+    final List<String> shortNames = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
+    return sorted.map((d) => shortNames[d - 1]).join(", ");
   }
 }
