@@ -6,6 +6,7 @@ import 'package:smart_alarm_manager/models/reminder.dart';
 import 'package:smart_alarm_manager/utils/constants.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:smart_alarm_manager/data/database_helper.dart';
+import 'package:smart_alarm_manager/screens/full_screen_map_screen.dart';
 import 'package:smart_alarm_manager/models/suggestion_history.dart';
 
 class AddReminderScreen extends StatefulWidget {
@@ -366,6 +367,26 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     );
   }
 
+  Future<void> _openFullScreenMap() async {
+    final LatLng? result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenMapScreen(
+          initialLocation: _selectedLocation,
+          initialRadius: _radius,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedLocation = result;
+        _updateCoordControllers();
+      });
+      _mapController?.animateCamera(CameraUpdate.newLatLng(_selectedLocation));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -697,13 +718,18 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                     ),
                   ),
                 ),
-                // Custom Map Controls (My Location + Zoom)
+                // Custom Map Controls (My Location + Zoom + FullScreen)
                 Positioned(
                   bottom: 16,
                   right: 16,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      _buildMapControl(
+                        icon: Icons.fullscreen,
+                        onPressed: _openFullScreenMap,
+                      ),
+                      const SizedBox(height: 8),
                       _buildMapControl(
                         icon: Icons.my_location,
                         onPressed: _getCurrentLocation,
