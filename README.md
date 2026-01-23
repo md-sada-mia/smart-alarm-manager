@@ -1,4 +1,4 @@
-# Smart Alarm Manager 📍⏰
+# Smart Alarm Manager 📍⏰ 
 
 **Smart Alarm Manager** is a powerful location-based reminder application built with Flutter. It ensures you never miss a task when you arrive at a specific destination. Whether it's picking up groceries, arriving at work, or reaching a travel destination, Smart Alarm Manager wakes you up (literally!) when you get there.
 
