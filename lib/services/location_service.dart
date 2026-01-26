@@ -43,19 +43,6 @@ void onStart(ServiceInstance service) async {
 
   positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
     (Position position) async {
-      // Ignore inaccurate readings to prevent false alarms
-      if (position.accuracy > 100) return;
-
-      // if (service is AndroidServiceInstance) {
-      //   if (await service.isForegroundService()) {
-      //     service.setForegroundNotificationInfo(
-      //       title: "Smart Alarm Manager",
-      //       content:
-      //           "Tracking Location: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}",
-      //     );
-      //   }
-      // }
-
       // Check Geofences
       try {
         final reminders = await repository.getReminders();
@@ -102,10 +89,6 @@ void onStart(ServiceInstance service) async {
               }
             } catch (e) {
               print("Error parsing time range for reminder ${reminder.id}: $e");
-              // If parsing fails, default to true (trigger) or false?
-              // Safer to ignore time condition (trigger) so user doesn't miss alarm,
-              // or false to avoid broken alarm?
-              // defaulting to true (ignore time restriction) seems safer for an alarm app.
               timeConditionMet = true;
             }
           }
@@ -119,16 +102,42 @@ void onStart(ServiceInstance service) async {
             reminder.longitude,
           );
 
-          // Check radius
+          // Check radius with smart accuracy filtering
           if (distance <= reminder.radius) {
-            // Inside
+            // INSIDE
+
+            // For triggering (Entering), we want decent accuracy
+            // Allow accuracy up to 75% of the radius or 150m, whichever is tighter
+            // This prevents triggering if accuracy is like 500m
+            double maxTriggerAccuracy = (reminder.radius * 0.75).clamp(
+              50.0,
+              150.0,
+            );
+            if (position.accuracy > maxTriggerAccuracy) {
+              print(
+                "Skipping trigger for ${reminder.title} due to poor accuracy: ${position.accuracy}",
+              );
+              continue;
+            }
+
             if (!triggeredReminderIds.contains(reminder.id)) {
-              // Enter Event
+              // Enter Event - Force stop any existing alarm first
+              print(
+                "Triggering alarm for ${reminder.title}. Clearing previous triggers.",
+              );
+
+              // Clear state of other alarms to ensure this one takes precedence
+              triggeredReminderIds.clear();
               triggeredReminderIds.add(reminder.id!);
+
+              // Notify main isolate to stop any current audio/screen
+              service.invoke('stop_alarm');
+              // Short delay to allow cleanup before trigger
+              await Future.delayed(const Duration(milliseconds: 200));
 
               // Check Notification Preference
               final prefs = await SharedPreferences.getInstance();
-              await prefs.reload(); // Force reload from disk
+              await prefs.reload();
               final bool showNotification =
                   prefs.getBool('push_notification_enabled') ?? true;
 
@@ -149,7 +158,7 @@ void onStart(ServiceInstance service) async {
               // Notify main isolate to play alarm and show screen
               service.invoke('trigger_alarm', {'id': reminder.id});
 
-              // Force launch app (requires 'Display over other apps' permission on Android 10+)
+              // Force launch app
               try {
                 if (Platform.isAndroid) {
                   final intent = AndroidIntent(
@@ -171,9 +180,18 @@ void onStart(ServiceInstance service) async {
               }
             }
           } else {
-            // Outside
-            if (triggeredReminderIds.contains(reminder.id)) {
+            // OUTSIDE
+
+            // For resetting (Exiting), we are much more lenient with accuracy.
+            // If the map says we are 1km away but accuracy is 300m, we are still definitely outside.
+            // We only keep the lock if the accuracy is so bad it overlaps with the radius.
+            bool isDefinitelyOutside =
+                distance > (reminder.radius + position.accuracy);
+
+            if (isDefinitelyOutside &&
+                triggeredReminderIds.contains(reminder.id)) {
               // Exit Event - Reset trigger
+              print("Exiting zone for ${reminder.title}. Resetting trigger.");
               triggeredReminderIds.remove(reminder.id);
             }
           }
